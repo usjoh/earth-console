@@ -22,10 +22,10 @@
           <h2>A globe for asking, “where was this place when the continents were somewhere else?”</h2>
         </div>
         <p>
-          Earth Console combines a realistic present-day globe with reconstructed deep-time layers.
-          The central idea is not just to show a dot moving through time, but to let that dot sit in
-          context: modern borders, ancient coastlines, plate outlines, rough motion directions, and
-          boundary zones can be switched on or off depending on the question.
+          Earth Console combines a realistic present-day globe with reconstructed deep-time and
+          present-day layers. The central idea is not just to show a dot moving through time, but to
+          let that dot sit in context: modern borders, ancient coastlines, plate outlines, rough
+          motion directions, and boundary zones can be switched on or off depending on the question.
         </p>
       </section>
 
@@ -88,26 +88,28 @@
           <h3>Lenses</h3>
           <dl>
             <div>
-              <dt>Tectonic</dt>
-              <dd>Emphasizes reconstructed land, plate polygons, motion arrows, trails, and boundary zones.</dd>
+              <dt>Planet</dt>
+              <dd>
+                The home for Earth systems: land, ocean, terrain, tectonics, atmosphere, climate,
+                ice, hydrology, and other natural-system layers. Tectonic data is a layer family
+                inside this lens rather than a separate top-level mode.
+              </dd>
             </div>
             <div>
               <dt>Political</dt>
-              <dd>Makes country identity easier to read by strengthening present-day country coloring.</dd>
-            </div>
-            <div>
-              <dt>Physical</dt>
-              <dd>Lets the Earth surface carry the view by making political overlays quieter.</dd>
-            </div>
-            <div>
-              <dt>Roblox</dt>
               <dd>
-                A playable solid-surface lens with bright country regions, a close camera, and a small
-                avatar. Dragging walks the avatar across the surface, pinch or wheel zoom changes the
-                camera distance, and touch devices add lower-corner thumb pads for movement and turning.
-                When zoomed close, the camera drops into a lower chase angle behind the avatar. It shifts
-                modern country shapes by their reconstructed label-point movement, so it is a readability/play
-                layer rather than the strict GPlates coastline view.
+                The home for human systems: countries, cities, borders, population, routes, trade,
+                air travel, and related datasets. Deep geologic time is not the natural default for
+                this lens.
+              </dd>
+            </div>
+            <div>
+              <dt>Game</dt>
+              <dd>
+                The future home for playful edits and world-changing tools. The current build uses
+                this lens for the game-style surface prototype: bright country regions, close zoom,
+                walking controls, and a small avatar. Later versions can add actions such as changing
+                borders, raising sea level, adding mountains, or modifying coastlines.
               </dd>
             </div>
           </dl>
@@ -118,6 +120,10 @@
         <div class="section-heading">
           <p class="kicker">Layer guide</p>
           <h2>What Each Switch Means</h2>
+          <p>
+            Layers are data elements, not lenses. Each layer has its own time domain, so a layer that
+            is meaningful today may need to hide, freeze, switch source, or show a caveat in deep time.
+          </p>
         </div>
         <div class="layer-table">
           <div>
@@ -134,6 +140,7 @@
             <p>
               Shows modern Natural Earth country boundaries. Useful for recognizing present-day countries,
               but it can be conceptually misleading in deep time because political borders did not exist.
+              In the new model this is a Human Systems layer rather than a planet-science layer.
             </p>
           </div>
           <div>
@@ -194,6 +201,14 @@
             <p>
               Purely visual depth cues. They make the globe feel spatial and alive, but they do not change
               the scientific data.
+            </p>
+          </div>
+          <div>
+            <h3>Future layer families</h3>
+            <p>
+              Day/night, rainfall, ice sheets, sea level, climate, and hydrology should be added as
+              Planet layer families with explicit time-validity rules. For example, current rainfall
+              climatology should not be shown at 200 Ma unless a paleo climate source supports it.
             </p>
           </div>
         </div>

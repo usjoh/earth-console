@@ -1,12 +1,12 @@
 # Earth Console
 
-Earth Console is a browser-based globe for exploring Earth through time. It combines a present-day globe, reconstructed deep-time coastlines and plate topology, plate-motion visualization, political/geographic reference layers, and a playable Roblox-style surface lens.
+Earth Console is a browser-based globe for exploring Earth through time. It combines a present-day globe, reconstructed deep-time coastlines and plate topology, plate-motion visualization, political/geographic reference layers, and an early game-style surface explorer.
 
 The app is designed as a learning tool for asking questions like:
 
 - Where would this city or country have been 50, 100, or 250 million years ago?
 - How do plate regions relate to recognizable continent shapes?
-- What changes when the same globe is viewed politically, physically, tectonically, or as a playable surface?
+- What changes when the same globe is viewed through Planet, Political, or Game lenses?
 
 ## Local Development
 

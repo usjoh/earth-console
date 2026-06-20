@@ -188,24 +188,24 @@ h1 {
   transition: opacity 180ms ease;
 }
 
-.app-shell.lens-roblox #globe {
+.app-shell.lens-game #globe {
   opacity: 1;
   transition: opacity 180ms ease;
 }
 
-.app-shell.lens-roblox .roblox-surface-view {
+.app-shell.lens-game .roblox-surface-view {
   display: block;
 }
 
-.app-shell.lens-roblox.roblox-surface-active #globe {
+.app-shell.lens-game.roblox-surface-active #globe {
   opacity: 0;
 }
 
-.app-shell.lens-roblox.roblox-surface-active .roblox-surface-view {
+.app-shell.lens-game.roblox-surface-active .roblox-surface-view {
   opacity: 1;
 }
 
-.app-shell.lens-roblox.roblox-dragging #globe {
+.app-shell.lens-game.roblox-dragging #globe {
   cursor: grabbing;
 }
 
@@ -271,11 +271,11 @@ h1 {
   font-weight: 760;
 }
 
-.app-shell.lens-roblox .hud {
+.app-shell.lens-game .hud {
   bottom: 244px;
 }
 
-.app-shell.lens-roblox .roblox-hud {
+.app-shell.lens-game .roblox-hud {
   top: 18px;
   right: auto;
   bottom: auto;
@@ -347,7 +347,7 @@ h1 {
 }
 
 @media (pointer: coarse) {
-  .app-shell.lens-roblox .roblox-touch-controls {
+  .app-shell.lens-game .roblox-touch-controls {
     display: none;
   }
 }
@@ -455,7 +455,7 @@ select {
 
 .lens-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -534,6 +534,19 @@ select {
   gap: 8px;
 }
 
+.layer-group-label {
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 820;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.layer-group-label:first-child {
+  margin-top: 0;
+}
+
 .layer-toggle {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
@@ -589,6 +602,20 @@ select {
   color: var(--faint);
   font-size: 11px;
   line-height: 1.2;
+}
+
+.layer-context {
+  display: block;
+  margin-top: 3px;
+  color: rgba(117, 224, 255, 0.66);
+  font-size: 10px;
+  font-weight: 760;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.layer-toggle.is-secondary-layer .layer-context {
+  color: rgba(255, 209, 102, 0.68);
 }
 
 .jump-grid {
@@ -992,7 +1019,7 @@ input[type="range"]::-moz-range-thumb {
     max-width: none;
   }
 
-  .app-shell.lens-roblox .hud {
+  .app-shell.lens-game .hud {
     bottom: 12px;
   }
 
@@ -1001,7 +1028,7 @@ input[type="range"]::-moz-range-thumb {
     bottom: 104px;
   }
 
-  .app-shell.lens-roblox .roblox-hud {
+  .app-shell.lens-game .roblox-hud {
     top: 12px;
     right: auto;
     bottom: auto;

@@ -22,11 +22,11 @@
               <div class="readout-value" id="timeReadout">Present</div>
             </div>
             <div class="readout">
-              <div class="readout-label">Model</div>
+              <div class="readout-label">Lens</div>
               <div class="readout-value" id="modelBadge">Loading</div>
             </div>
             <div class="readout">
-              <div class="readout-label">Layer</div>
+              <div class="readout-label">Data</div>
               <div class="readout-value" id="plateBadge">Loading</div>
             </div>
           </div>
@@ -92,17 +92,14 @@
             <h2 class="section-title">Lenses</h2>
           </div>
           <div class="lens-grid">
-            <button class="lens-button" type="button" data-lens="tectonic">
-              <i data-lucide="layers-3"></i><span>Tectonic</span>
+            <button class="lens-button" type="button" data-lens="planet">
+              <i data-lucide="globe"></i><span>Planet</span>
             </button>
             <button class="lens-button" type="button" data-lens="political">
               <i data-lucide="flag"></i><span>Political</span>
             </button>
-            <button class="lens-button" type="button" data-lens="physical">
-              <i data-lucide="mountain"></i><span>Physical</span>
-            </button>
-            <button class="lens-button" type="button" data-lens="roblox">
-              <i data-lucide="cuboid"></i><span>Roblox</span>
+            <button class="lens-button" type="button" data-lens="game">
+              <i data-lucide="cuboid"></i><span>Game</span>
             </button>
           </div>
         </section>
@@ -112,13 +109,10 @@
             <h2 class="section-title">Layers</h2>
           </div>
           <div class="layer-list">
+            <div class="layer-group-label">Surface and Tectonics</div>
             <label class="layer-toggle">
               <input type="checkbox" data-layer="reconstructedLand" checked />
               <span><span class="layer-name">Reconstructed land</span><span class="layer-note">GPlates coastline traces in the past, scenario land in the future</span></span>
-            </label>
-            <label class="layer-toggle">
-              <input type="checkbox" data-layer="countries" checked />
-              <span><span class="layer-name">Country borders</span><span class="layer-note">Natural Earth 1:110m admin boundaries</span></span>
             </label>
             <label class="layer-toggle">
               <input type="checkbox" data-layer="plates" checked />
@@ -129,12 +123,18 @@
               <span><span class="layer-name">Plate motion</span><span class="layer-note">Surface arrows show plate direction and speed</span></span>
             </label>
             <label class="layer-toggle">
-              <input type="checkbox" data-layer="orientation" checked />
-              <span><span class="layer-name">Orientation grid</span><span class="layer-note">Pole extensions plus light longitude and equator lines</span></span>
-            </label>
-            <label class="layer-toggle">
               <input type="checkbox" data-layer="boundaries" checked />
               <span><span class="layer-name">Boundary zones</span><span class="layer-note">Rifts, collision belts, and crust-forming ridges</span></span>
+            </label>
+            <div class="layer-group-label">Human Systems</div>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="countries" checked />
+              <span><span class="layer-name">Country borders</span><span class="layer-note">Natural Earth 1:110m admin boundaries</span></span>
+            </label>
+            <div class="layer-group-label">Reference</div>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="orientation" checked />
+              <span><span class="layer-name">Orientation grid</span><span class="layer-note">Pole extensions plus light longitude and equator lines</span></span>
             </label>
             <label class="layer-toggle">
               <input type="checkbox" data-layer="trails" checked />
@@ -148,6 +148,7 @@
               <input type="checkbox" data-layer="labels" checked />
               <span><span class="layer-name">Labels</span><span class="layer-note">Names on the globe for selected objects and boundary zones</span></span>
             </label>
+            <div class="layer-group-label">Scene</div>
             <label class="layer-toggle">
               <input type="checkbox" data-layer="atmosphere" checked />
               <span><span class="layer-name">Atmosphere</span><span class="layer-note">Globe rim and depth cue</span></span>

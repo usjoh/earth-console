@@ -22,6 +22,79 @@ const ASSETS = {
   robloxSky: publicUrl("assets/roblox-sky.svg"),
 };
 
+const LENSES = {
+  planet: {
+    label: "Planet",
+    readout: "Planet / Earth Systems",
+  },
+  political: {
+    label: "Political",
+    readout: "Political / Human Systems",
+  },
+  game: {
+    label: "Game",
+    readout: "Game / Edit Mode",
+  },
+};
+
+const LAYER_METADATA = {
+  reconstructedLand: {
+    family: "Surface / Tectonics",
+    timeDomain: "geologic model + scenario",
+    primaryLenses: ["planet", "game"],
+  },
+  plates: {
+    family: "Tectonics",
+    timeDomain: "geologic model",
+    primaryLenses: ["planet"],
+  },
+  plateMotion: {
+    family: "Tectonics",
+    timeDomain: "geologic model + scenario",
+    primaryLenses: ["planet"],
+  },
+  boundaries: {
+    family: "Tectonics",
+    timeDomain: "present reference",
+    primaryLenses: ["planet"],
+  },
+  countries: {
+    family: "Human systems",
+    timeDomain: "present snapshot",
+    primaryLenses: ["political", "game"],
+  },
+  orientation: {
+    family: "Reference",
+    timeDomain: "all views",
+    primaryLenses: ["all"],
+  },
+  trails: {
+    family: "Reference",
+    timeDomain: "selected time",
+    primaryLenses: ["all"],
+  },
+  referenceTracks: {
+    family: "Reference",
+    timeDomain: "selected time",
+    primaryLenses: ["all"],
+  },
+  labels: {
+    family: "Reference",
+    timeDomain: "selected time",
+    primaryLenses: ["all"],
+  },
+  atmosphere: {
+    family: "Scene",
+    timeDomain: "visual setting",
+    primaryLenses: ["all"],
+  },
+  stars: {
+    family: "Scene",
+    timeDomain: "visual setting",
+    primaryLenses: ["all"],
+  },
+};
+
 const PLATE_SNAPSHOTS = [0, 10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250];
 const PAST_TIMES = [-250, -225, -200, -175, -150, -125, -100, -75, -50, -25, -10, 0];
 const KEY_TIMES = [-250, -200, -150, -100, -50, 0, 50, 100, 150, 200, 250];
@@ -110,7 +183,7 @@ const BOUNDARY_ZONES = [
 
 const state = {
   time: 0,
-  lens: "tectonic",
+  lens: "planet",
   playing: false,
   selectedId: "yerevan",
   layers: {
@@ -349,8 +422,54 @@ function isReconstructionView() {
   return state.layers.reconstructedLand && state.time !== 0;
 }
 
+function lensConfig(lens = state.lens) {
+  return LENSES[lens] || LENSES.planet;
+}
+
+function isPlanetLens() {
+  return state.lens === "planet";
+}
+
+function isPoliticalLens() {
+  return state.lens === "political";
+}
+
+function isGameLens() {
+  return state.lens === "game";
+}
+
 function isRobloxLens() {
-  return state.lens === "roblox";
+  return isGameLens();
+}
+
+function layerPrimaryInCurrentLens(metadata) {
+  return Boolean(metadata?.primaryLenses?.includes("all") || metadata?.primaryLenses?.includes(state.lens));
+}
+
+function activeDataDomainLabel() {
+  if (state.time < 0) return "Geologic reconstruction";
+  if (state.time > 0) return "Scenario future";
+  return isPoliticalLens() ? "Present human systems" : "Present Earth";
+}
+
+function updateLayerContext() {
+  document.querySelectorAll("[data-layer]").forEach((input) => {
+    const metadata = LAYER_METADATA[input.dataset.layer];
+    const label = input.closest(".layer-toggle");
+    const note = label?.querySelector(".layer-note");
+    if (!metadata || !label || !note) return;
+
+    let context = note.querySelector(".layer-context");
+    if (!context) {
+      context = document.createElement("span");
+      context.className = "layer-context";
+      note.append(context);
+    }
+
+    const primary = layerPrimaryInCurrentLens(metadata);
+    context.textContent = `${metadata.family} / ${metadata.timeDomain}${primary ? "" : ` / optional in ${lensConfig().label}`}`;
+    label.classList.toggle("is-secondary-layer", !primary);
+  });
 }
 
 function textHash(text) {
@@ -377,21 +496,21 @@ function robloxLandColor(feature) {
 
 function plateColor(feature) {
   if (isReconstructionView()) {
-    return state.lens === "tectonic" ? "rgba(65, 230, 247, 0.035)" : "rgba(65, 230, 247, 0.02)";
+    return isPlanetLens() ? "rgba(65, 230, 247, 0.035)" : "rgba(65, 230, 247, 0.02)";
   }
   const id = Number(feature.properties?.reconstruction_plate_id || feature.properties?.PLATEID1 || 0);
   const hue = (id * 37) % 360;
-  return `hsla(${hue}, 72%, 56%, ${state.lens === "tectonic" ? 0.14 : 0.07})`;
+  return `hsla(${hue}, 72%, 56%, ${isPlanetLens() ? 0.14 : 0.07})`;
 }
 
 function countryCapColor(feature) {
   if (feature.appKind === "roblox-land") return robloxLandColor(feature);
-  if (!state.layers.countries || state.lens === "physical") return "rgba(0,0,0,0)";
+  if (!state.layers.countries) return "rgba(0,0,0,0)";
   const selected = selectedPoint();
   if (selected.kind === "country" && feature.properties.APP_ID === selected.iso) {
     return state.time === 0 ? "rgba(255, 208, 94, 0.76)" : "rgba(255, 208, 94, 0.34)";
   }
-  if (state.lens === "political") return colorByContinent(feature.properties.APP_CONTINENT, 0.28);
+  if (isPoliticalLens()) return colorByContinent(feature.properties.APP_CONTINENT, 0.28);
   if (isReconstructionView()) return "rgba(0, 0, 0, 0)";
   return colorByContinent(feature.properties.APP_CONTINENT, 0.05);
 }
@@ -400,22 +519,22 @@ function countryStrokeColor(feature) {
   if (feature.appKind === "roblox-land") {
     return state.layers.countries ? "rgba(22, 31, 42, 0.86)" : "rgba(22, 31, 42, 0.22)";
   }
-  if (!state.layers.countries || state.lens === "physical") return "rgba(255,255,255,0)";
+  if (!state.layers.countries) return "rgba(255,255,255,0)";
   const selected = selectedPoint();
   if (selected.kind === "country" && feature.properties.APP_ID === selected.iso) {
     return "rgba(255, 232, 168, 0.94)";
   }
   if (isReconstructionView()) {
-    return state.lens === "political" ? "rgba(235, 244, 255, 0.24)" : "rgba(238, 246, 255, 0.06)";
+    return isPoliticalLens() ? "rgba(235, 244, 255, 0.24)" : "rgba(238, 246, 255, 0.06)";
   }
-  return state.lens === "political" ? "rgba(220,232,255,0.42)" : "rgba(180,210,255,0.19)";
+  return isPoliticalLens() ? "rgba(220,232,255,0.42)" : "rgba(180,210,255,0.19)";
 }
 
 function reconstructedLandColor(feature) {
   if (feature.appKind === "future-land") {
-    return colorByContinent(feature.properties.APP_CONTINENT, state.lens === "political" ? 0.72 : 0.66);
+    return colorByContinent(feature.properties.APP_CONTINENT, isPoliticalLens() ? 0.72 : 0.66);
   }
-  return state.lens === "political" ? "rgba(224, 199, 124, 0.46)" : "rgba(224, 199, 124, 0.34)";
+  return isPoliticalLens() ? "rgba(224, 199, 124, 0.46)" : "rgba(224, 199, 124, 0.34)";
 }
 
 function reconstructedLandStroke(feature) {
@@ -1015,9 +1134,9 @@ function updateRobloxViewMode() {
   const shell = qs("#app");
   if (!shell) return;
   const surfaceActive = isRobloxSurfaceView();
-  shell.classList.toggle("lens-roblox", isRobloxLens());
+  shell.classList.toggle("lens-game", isGameLens());
   shell.classList.toggle("roblox-surface-active", surfaceActive);
-  shell.classList.toggle("roblox-globe-active", isRobloxLens() && !surfaceActive);
+  shell.classList.toggle("roblox-globe-active", isGameLens() && !surfaceActive);
 }
 
 function robloxSurfaceHorizonY(height) {
@@ -2114,14 +2233,11 @@ function updateReadouts() {
   qs("#hudSelectedMeta").textContent =
     selected.kind === "city" ? `${selected.country} city track` : `${selected.continent} country centroid`;
   qs("#hudLatLng").textContent = `${position.lat.toFixed(2)} lat, ${position.lng.toFixed(2)} lng`;
-  qs("#modelBadge").textContent =
-    state.time < 0 ? "GPlates Muller2019" : state.time === 0 ? "Present-day Natural Earth" : "Scenario mode";
+  qs("#modelBadge").textContent = lensConfig().readout;
   qs("#plateBadge").textContent =
     state.time < 0
-      ? `Coastlines/plates: ${nearestPlateSnapshot(state.time)} Ma`
-      : state.time === 0
-        ? "Present-day surface"
-        : "Future scenario land";
+      ? `${activeDataDomainLabel()}: ${nearestPlateSnapshot(state.time)} Ma`
+      : activeDataDomainLabel();
   qs("#playIcon").setAttribute("data-lucide", state.playing ? "pause" : "play");
   qs("#playLabel").textContent = state.playing ? "Pause" : "Play";
   createIcons({ icons });
@@ -2194,7 +2310,7 @@ function updateGlobe() {
         const selected = selectedPoint();
         return selected.kind === "country" && feature.properties.APP_ID === selected.iso ? 0.016 : 0.01;
       }
-      if (feature.appKind === "plate") return isReconstructionView() ? 0.016 : state.lens === "tectonic" ? 0.007 : 0.003;
+      if (feature.appKind === "plate") return isReconstructionView() ? 0.016 : isPlanetLens() ? 0.007 : 0.003;
       if (feature.appKind === "reconstructed-land" || feature.appKind === "future-land") return 0.012;
       const selected = selectedPoint();
       if (selected.kind === "country" && feature.properties.APP_ID === selected.iso) return state.time === 0 ? 0.012 : 0.018;
@@ -2229,18 +2345,19 @@ async function setTime(time) {
 
 function setLens(lens) {
   const previousLens = state.lens;
-  state.lens = lens;
+  state.lens = LENSES[lens] ? lens : "planet";
   if (isRobloxLens()) {
     state.roblox.followFocus = true;
-    if (previousLens !== "roblox") {
+    if (previousLens !== "game") {
       state.roblox.altitude = ROBLOX_DEFAULT_CAMERA_ALTITUDE;
       state.roblox.cameraYaw = 0;
       resetRobloxGestureState();
     }
   }
   document.querySelectorAll("[data-lens]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.lens === lens);
+    button.classList.toggle("is-active", button.dataset.lens === state.lens);
   });
+  updateLayerContext();
   updateLensMode();
   updateGlobe();
 }
@@ -2393,7 +2510,7 @@ function initGlobe() {
     .hexPolygonResolution(3)
     .polygonLabel((feature) => {
       if (feature.appKind === "roblox-land") {
-        return `<b>${feature.properties.APP_NAME}</b><br/>Roblox surface<br/>${fmtTime(state.time)}`;
+        return `<b>${feature.properties.APP_NAME}</b><br/>Game surface prototype<br/>${fmtTime(state.time)}`;
       }
       if (feature.appKind === "plate") {
         const plate = feature.properties?.reconstruction_plate_id || "unknown";
