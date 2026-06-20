@@ -36,6 +36,8 @@ const ROBLOX_THUMB_RADIUS_PX = 58;
 const ROBLOX_JOYSTICK_MOVE_PX_PER_FRAME = 7.2;
 const ROBLOX_JOYSTICK_TURN_RAD_PER_FRAME = 0.03;
 const ROBLOX_JOYSTICK_ZOOM_PER_FRAME = 0.018;
+const ROBLOX_SURFACE_MIN_PX_PER_DEGREE = 16;
+const ROBLOX_SURFACE_MAX_PX_PER_DEGREE = 126;
 
 const FUTURE_MOTIONS = {
   "North America": { latPerMyr: 0.006, lngPerMyr: -0.045 },
@@ -963,6 +965,282 @@ function projectRobloxTangent(vector, normal) {
   return tangent.lengthSq() > 0.000001 ? tangent.normalize() : null;
 }
 
+function robloxSurfaceZoomProgress() {
+  const min = Math.log(ROBLOX_MIN_CAMERA_ALTITUDE);
+  const max = Math.log(ROBLOX_MAX_CAMERA_ALTITUDE);
+  return clamp((Math.log(state.roblox.altitude) - min) / (max - min), 0, 1);
+}
+
+function robloxSurfacePixelsPerDegree() {
+  const zoomProgress = Math.pow(robloxSurfaceZoomProgress(), 0.58);
+  return THREE.MathUtils.lerp(ROBLOX_SURFACE_MAX_PX_PER_DEGREE, ROBLOX_SURFACE_MIN_PX_PER_DEGREE, zoomProgress);
+}
+
+function robloxSurfaceHeadingBasis(position) {
+  const heading = state.roblox.heading || { lat: 1, lng: 0 };
+  const latFactor = Math.max(0.28, Math.cos((position.lat * Math.PI) / 180));
+  const east = (heading.lng || 0) * latFactor;
+  const north = heading.lat || 0;
+  const magnitude = Math.hypot(east, north) || 1;
+  const forward = { x: east / magnitude, y: north / magnitude };
+  return {
+    forward,
+    right: { x: forward.y, y: -forward.x },
+  };
+}
+
+function robloxSurfaceProjection(width, height, position) {
+  const basis = robloxSurfaceHeadingBasis(position);
+  const scale = robloxSurfacePixelsPerDegree();
+  const origin = {
+    x: width * 0.5,
+    y: height * 0.58,
+  };
+  const latScale = Math.max(0.28, Math.cos((position.lat * Math.PI) / 180));
+
+  return (lat, lng, lift = 0) => {
+    const east = shortestLngDelta(position.lng, lng) * latScale;
+    const north = lat - position.lat;
+    const right = east * basis.right.x + north * basis.right.y;
+    const forward = east * basis.forward.x + north * basis.forward.y;
+    const distanceAhead = Math.max(0, forward + 1.2);
+    const perspective = clamp(1 / (1 + distanceAhead * 0.055), 0.36, 1.18);
+    return {
+      x: origin.x + right * scale * perspective,
+      y: origin.y - forward * scale * perspective - lift * scale,
+      forward,
+      perspective,
+    };
+  };
+}
+
+function robloxSurfaceFeatures() {
+  if (!state.countries) return [];
+  if (state.layers.reconstructedLand) return buildRobloxLand();
+  if (!state.layers.countries) return [];
+  return state.countries.features.map((feature) => ({
+    ...feature,
+    appKind: "roblox-land",
+  }));
+}
+
+function robloxSurfacePath(geometry, project, width, height) {
+  const polygons =
+    geometry?.type === "Polygon"
+      ? [geometry.coordinates]
+      : geometry?.type === "MultiPolygon"
+        ? geometry.coordinates
+        : [];
+  if (!polygons.length) return null;
+
+  const path = new Path2D();
+  const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+  let hasPoints = false;
+
+  for (const polygon of polygons) {
+    for (const ring of polygon) {
+      if (!ring?.length) continue;
+      let ringStarted = false;
+      for (const [lng, lat] of ring) {
+        const point = project(lat, lng);
+        if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+        if (!ringStarted) {
+          path.moveTo(point.x, point.y);
+          ringStarted = true;
+          hasPoints = true;
+        } else {
+          path.lineTo(point.x, point.y);
+        }
+        bounds.minX = Math.min(bounds.minX, point.x);
+        bounds.maxX = Math.max(bounds.maxX, point.x);
+        bounds.minY = Math.min(bounds.minY, point.y);
+        bounds.maxY = Math.max(bounds.maxY, point.y);
+      }
+      if (ringStarted) path.closePath();
+    }
+  }
+
+  if (!hasPoints) return null;
+  const margin = Math.max(width, height) * 0.4;
+  if (bounds.maxX < -margin || bounds.minX > width + margin || bounds.maxY < -margin || bounds.minY > height + margin) {
+    return null;
+  }
+  return path;
+}
+
+function drawRobloxSurfaceBackground(ctx, width, height) {
+  const sky = ctx.createLinearGradient(0, 0, 0, height * 0.42);
+  sky.addColorStop(0, "#b9e8f4");
+  sky.addColorStop(0.58, "#7ec5e4");
+  sky.addColorStop(1, "#4aa3dc");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, height);
+
+  const water = ctx.createLinearGradient(0, height * 0.22, 0, height);
+  water.addColorStop(0, "#3da6e6");
+  water.addColorStop(0.55, "#1e86dd");
+  water.addColorStop(1, "#0b5cae");
+  ctx.fillStyle = water;
+  ctx.fillRect(0, height * 0.22, width, height * 0.78);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+  ctx.fillRect(0, height * 0.22, width, 2);
+}
+
+function drawRobloxSurfaceGrid(ctx, width, height, project, position) {
+  ctx.save();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(210, 243, 255, 0.18)";
+  const latStart = Math.floor((position.lat - 36) / 5) * 5;
+  const latEnd = Math.ceil((position.lat + 44) / 5) * 5;
+  const lngStart = Math.floor((position.lng - 70) / 5) * 5;
+  const lngEnd = Math.ceil((position.lng + 70) / 5) * 5;
+
+  for (let lat = latStart; lat <= latEnd; lat += 5) {
+    ctx.beginPath();
+    let started = false;
+    for (let lng = lngStart; lng <= lngEnd; lng += 1.5) {
+      const point = project(lat, normalizeLng(lng));
+      if (!started) {
+        ctx.moveTo(point.x, point.y);
+        started = true;
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    }
+    ctx.stroke();
+  }
+
+  for (let lng = lngStart; lng <= lngEnd; lng += 5) {
+    ctx.beginPath();
+    let started = false;
+    for (let lat = latStart; lat <= latEnd; lat += 1.5) {
+      const point = project(clampLat(lat), normalizeLng(lng));
+      if (!started) {
+        ctx.moveTo(point.x, point.y);
+        started = true;
+      } else {
+        ctx.lineTo(point.x, point.y);
+      }
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawRobloxSurfaceLand(ctx, width, height, project) {
+  const features = robloxSurfaceFeatures();
+  const shadowOffset = Math.max(8, Math.min(22, robloxSurfacePixelsPerDegree() * 0.18));
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  for (const feature of features) {
+    const path = robloxSurfacePath(feature.geometry, project, width, height);
+    if (!path) continue;
+
+    ctx.save();
+    ctx.translate(0, shadowOffset);
+    ctx.fillStyle = "rgba(17, 29, 43, 0.74)";
+    ctx.fill(path, "evenodd");
+    ctx.restore();
+
+    ctx.fillStyle = robloxLandColor(feature);
+    ctx.fill(path, "evenodd");
+    ctx.lineWidth = state.layers.countries ? 1.2 : 0.45;
+    ctx.strokeStyle = state.layers.countries ? "rgba(24, 34, 48, 0.72)" : "rgba(24, 34, 48, 0.22)";
+    ctx.stroke(path);
+  }
+  ctx.restore();
+}
+
+function drawRobloxSurfaceAvatar(ctx, width, height) {
+  const walking = isRobloxLens() && window.performance.now() < state.roblox.walkingUntil;
+  const phase = window.performance.now() / 95;
+  const swing = walking ? Math.sin(phase) : 0;
+  const scale = Math.max(0.82, Math.min(1.34, height / 700));
+  const size = Math.max(58, Math.min(96, height * 0.105)) * scale;
+  const x = width * 0.5;
+  const y = height * 0.58;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = "rgba(6, 12, 18, 0.28)";
+  ctx.beginPath();
+  ctx.ellipse(0, size * 0.52, size * 0.45, size * 0.16, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const legSwing = swing * size * 0.08;
+  ctx.fillStyle = "#1f2937";
+  ctx.fillRect(-size * 0.22, size * 0.1 + legSwing, size * 0.16, size * 0.42);
+  ctx.fillRect(size * 0.06, size * 0.1 - legSwing, size * 0.16, size * 0.42);
+
+  ctx.fillStyle = "#3b82f6";
+  ctx.fillRect(-size * 0.29, -size * 0.23, size * 0.58, size * 0.42);
+  ctx.fillStyle = "#ffd166";
+  ctx.fillRect(-size * 0.18, -size * 0.62, size * 0.36, size * 0.34);
+  ctx.fillRect(-size * 0.43, -size * 0.2 - legSwing * 0.5, size * 0.14, size * 0.36);
+  ctx.fillRect(size * 0.29, -size * 0.2 + legSwing * 0.5, size * 0.14, size * 0.36);
+
+  ctx.fillStyle = "#172033";
+  ctx.fillRect(-size * 0.08, -size * 0.46, size * 0.05, size * 0.04);
+  ctx.fillRect(size * 0.04, -size * 0.46, size * 0.05, size * 0.04);
+  ctx.fillRect(-size * 0.1, -size * 0.36, size * 0.2, size * 0.03);
+
+  ctx.strokeStyle = "#22c55e";
+  ctx.lineWidth = Math.max(3, size * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(size * 0.34, -size * 0.38);
+  ctx.lineTo(size * 0.34, -size * 0.82);
+  ctx.stroke();
+  ctx.fillStyle = "#22c55e";
+  ctx.fillRect(size * 0.36, -size * 0.82, size * 0.28, size * 0.17);
+  ctx.restore();
+}
+
+function drawRobloxSurfaceLabels(ctx, width, height) {
+  if (!state.layers.labels) return;
+  const selected = selectedPoint();
+  ctx.save();
+  ctx.font = "700 15px Inter, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "rgba(6, 12, 18, 0.78)";
+  ctx.fillStyle = "rgba(255, 239, 187, 0.95)";
+  const x = width * 0.5;
+  const y = height * 0.58 - Math.max(66, Math.min(104, height * 0.12));
+  ctx.strokeText(selected.name, x, y);
+  ctx.fillText(selected.name, x, y);
+  ctx.restore();
+}
+
+function renderRobloxSurface() {
+  const canvas = qs("#robloxSurface");
+  if (!canvas || !isRobloxLens() || !state.countries) return;
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const targetWidth = Math.round(rect.width * dpr);
+  const targetHeight = Math.round(rect.height * dpr);
+  if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+  }
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const width = rect.width;
+  const height = rect.height;
+  const position = activeRobloxPosition();
+  const project = robloxSurfaceProjection(width, height, position);
+
+  drawRobloxSurfaceBackground(ctx, width, height);
+  drawRobloxSurfaceGrid(ctx, width, height, project, position);
+  drawRobloxSurfaceLand(ctx, width, height, project);
+  drawRobloxSurfaceLabels(ctx, width, height);
+  drawRobloxSurfaceAvatar(ctx, width, height);
+}
+
 function fallbackRobloxMovementBasis(position, normal, origin) {
   const northCoords = robloxCoords(clampLat(position.lat + 1), position.lng, 0);
   const eastCoords = robloxCoords(position.lat, normalizeLng(position.lng + 1), 0);
@@ -1108,9 +1386,9 @@ function markRobloxAvatarWalking(duration = 280) {
 }
 
 function updateRobloxAvatarAnimation() {
+  const walking = isRobloxLens() && window.performance.now() < state.roblox.walkingUntil;
   if (state.robloxAvatar) {
     const parts = state.robloxAvatar.userData;
-    const walking = isRobloxLens() && window.performance.now() < state.roblox.walkingUntil;
     const phase = window.performance.now() / 95;
     const swing = walking ? Math.sin(phase) * 0.62 : 0;
     const bob = walking ? Math.abs(Math.sin(phase)) * 0.045 : 0;
@@ -1123,6 +1401,7 @@ function updateRobloxAvatarAnimation() {
     if (parts.rightArm) parts.rightArm.rotation.x = swing * 0.72;
     state.robloxAvatar.scale.setScalar(avatarScale + bob);
   }
+  if (isRobloxLens() && (walking || robloxThumbControlsActive())) renderRobloxSurface();
   state.roblox.animationFrame = window.requestAnimationFrame(updateRobloxAvatarAnimation);
 }
 
@@ -1226,6 +1505,7 @@ function setRobloxCameraAltitude(altitude, duration = 120) {
   if (!isRobloxLens()) return;
   state.roblox.altitude = clamp(altitude, ROBLOX_MIN_CAMERA_ALTITUDE, ROBLOX_MAX_CAMERA_ALTITUDE);
   pointRobloxCameraAtAvatar(duration);
+  renderRobloxSurface();
 }
 
 function setRobloxAvatarPosition(lat, lng, duration = 240, options = {}) {
@@ -1247,6 +1527,7 @@ function setRobloxAvatarPosition(lat, lng, duration = 240, options = {}) {
   updateRobloxAvatarObject();
   updateRobloxHud();
   pointRobloxCameraAtAvatar(duration);
+  renderRobloxSurface();
 }
 
 function resetRobloxAvatarToFocus() {
@@ -1257,6 +1538,7 @@ function resetRobloxAvatarToFocus() {
   updateRobloxAvatarObject();
   updateRobloxHud();
   pointRobloxCameraAtAvatar(520);
+  renderRobloxSurface();
 }
 
 function moveRobloxAvatar(direction) {
@@ -1799,6 +2081,7 @@ function updateGlobe() {
   updateAxisObject();
   updateRobloxAvatarObject();
   updateRobloxHud();
+  renderRobloxSurface();
   updateReadouts();
 }
 
@@ -1942,7 +2225,10 @@ function buildControls() {
       moveRobloxAvatar(movement);
     }
   });
-  window.addEventListener("resize", updateTopbarHeight);
+  window.addEventListener("resize", () => {
+    updateTopbarHeight();
+    renderRobloxSurface();
+  });
   updateTopbarHeight();
 }
 
