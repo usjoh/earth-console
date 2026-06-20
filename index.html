@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Earth Console</title>
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><i data-lucide="orbit"></i></div>
+          <div class="brand-text">
+            <div class="eyebrow">Private planet control panel</div>
+            <h1>Earth Console</h1>
+          </div>
+        </div>
+        <div class="top-actions">
+          <div class="top-readouts" aria-live="polite">
+            <div class="readout">
+              <div class="readout-label">Time</div>
+              <div class="readout-value" id="timeReadout">Present</div>
+            </div>
+            <div class="readout">
+              <div class="readout-label">Model</div>
+              <div class="readout-value" id="modelBadge">Loading</div>
+            </div>
+            <div class="readout">
+              <div class="readout-label">Layer</div>
+              <div class="readout-value" id="plateBadge">Loading</div>
+            </div>
+          </div>
+          <div class="utility-actions">
+            <a class="tool-button guide-link" href="./guide.html">
+              <i data-lucide="book-open"></i><span>Guide</span>
+            </a>
+            <button class="tool-button tools-toggle" id="toolsToggle" type="button" aria-controls="sidePanel" aria-expanded="false">
+              <i data-lucide="panel-right-open"></i><span>Tools</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="globe-stage" aria-label="Interactive 3D Earth">
+        <div id="globe"></div>
+        <div class="hud">
+          <div class="hud-line"><strong id="hudSelectedName">Yerevan</strong> <span id="hudSelectedMeta">city track</span></div>
+          <div class="hud-line" id="hudLatLng">0.00 lat, 0.00 lng</div>
+        </div>
+        <div class="roblox-hud" id="robloxHud" hidden>
+          <div class="roblox-status">
+            <strong>Surface Explorer</strong>
+            <span id="robloxPosition">Walk the selected time surface</span>
+          </div>
+        </div>
+        <div class="roblox-touch-controls" id="robloxTouchControls" aria-hidden="true">
+          <div class="thumb-pad thumb-pad-move" data-roblox-pad="move">
+            <div class="thumb-ring"><div class="thumb-stick" id="robloxMoveStick"></div></div>
+          </div>
+          <div class="thumb-pad thumb-pad-look" data-roblox-pad="look">
+            <div class="thumb-ring"><div class="thumb-stick" id="robloxLookStick"></div></div>
+          </div>
+        </div>
+      </main>
+
+      <button class="panel-scrim" id="panelScrim" type="button" aria-label="Close tools panel"></button>
+
+      <aside class="side-panel" id="sidePanel" aria-label="Earth Console tools">
+        <section class="panel-section">
+          <div class="section-head">
+            <h2 class="section-title">Focus</h2>
+            <div class="status"><span class="status-dot"></span><span id="statusText">Starting</span></div>
+            <button class="panel-close" id="toolsClose" type="button" aria-label="Close tools panel">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          <label class="select-wrap">
+            <span class="control-label">Track a place or country</span>
+            <select id="focusSelect"></select>
+          </label>
+          <div class="selected-readout">
+            <div class="control-label">Current projected position</div>
+            <div id="selectedName">Yerevan</div>
+            <div id="selectedMeta">Armenia city track</div>
+            <div id="latLng">40.19 lat, 44.52 lng</div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-head">
+            <h2 class="section-title">Lenses</h2>
+          </div>
+          <div class="lens-grid">
+            <button class="lens-button" type="button" data-lens="tectonic">
+              <i data-lucide="layers-3"></i><span>Tectonic</span>
+            </button>
+            <button class="lens-button" type="button" data-lens="political">
+              <i data-lucide="flag"></i><span>Political</span>
+            </button>
+            <button class="lens-button" type="button" data-lens="physical">
+              <i data-lucide="mountain"></i><span>Physical</span>
+            </button>
+            <button class="lens-button" type="button" data-lens="roblox">
+              <i data-lucide="cuboid"></i><span>Roblox</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-head">
+            <h2 class="section-title">Layers</h2>
+          </div>
+          <div class="layer-list">
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="reconstructedLand" checked />
+              <span><span class="layer-name">Reconstructed land</span><span class="layer-note">GPlates coastline traces in the past, scenario land in the future</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="countries" checked />
+              <span><span class="layer-name">Country borders</span><span class="layer-note">Natural Earth 1:110m admin boundaries</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="plates" checked />
+              <span><span class="layer-name">Plate polygons</span><span class="layer-note">GPlates topology snapshots for past time</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="plateMotion" checked />
+              <span><span class="layer-name">Plate motion</span><span class="layer-note">Surface arrows show plate direction and speed</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="orientation" checked />
+              <span><span class="layer-name">Orientation grid</span><span class="layer-note">Pole extensions plus light longitude and equator lines</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="boundaries" checked />
+              <span><span class="layer-name">Boundary zones</span><span class="layer-note">Rifts, collision belts, and crust-forming ridges</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="trails" checked />
+              <span><span class="layer-name">Selected trail</span><span class="layer-note">Projected track for the active place or country</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="referenceTracks" />
+              <span><span class="layer-name">Reference trails</span><span class="layer-note">Optional comparison tracks for a few saved places</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="labels" checked />
+              <span><span class="layer-name">Labels</span><span class="layer-note">Names on the globe for selected objects and boundary zones</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="atmosphere" checked />
+              <span><span class="layer-name">Atmosphere</span><span class="layer-note">Globe rim and depth cue</span></span>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="stars" checked />
+              <span><span class="layer-name">Star field</span><span class="layer-note">Space background texture</span></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-head">
+            <h2 class="section-title">Expeditions</h2>
+          </div>
+          <div class="jump-grid">
+            <button class="jump-button" type="button" data-jump="-250">Pangaea</button>
+            <button class="jump-button" type="button" data-jump="-100">Cretaceous</button>
+            <button class="jump-button" type="button" data-jump="0">Today</button>
+            <button class="jump-button" type="button" data-jump="50">+50 Ma</button>
+            <button class="jump-button" type="button" data-jump="150">+150 Ma</button>
+            <button class="jump-button" type="button" data-jump="250">+250 Ma</button>
+          </div>
+        </section>
+
+        <section class="panel-section scroll-area">
+          <div class="section-head">
+            <h2 class="section-title">Sources</h2>
+          </div>
+          <dl class="source-list">
+            <div>
+              <dt>Present-day countries</dt>
+              <dd>Natural Earth 1:110m country geometry, preserved locally.</dd>
+            </div>
+            <div>
+              <dt>Past reconstructions</dt>
+              <dd>GPlates Web Service coastlines, plate polygons, and point reconstructions.</dd>
+            </div>
+            <div>
+              <dt>Future view</dt>
+              <dd>Scenario sketch using broad plate drift vectors, not a scientific forecast.</dd>
+            </div>
+          </dl>
+        </section>
+      </aside>
+
+      <section class="bottom-console" aria-label="Time controls">
+        <div class="transport">
+          <div>
+            <div class="control-label">Timeline</div>
+            <p class="fine-print">Past from GPlates. Future is scenario mode.</p>
+          </div>
+          <div class="transport-actions">
+            <button class="tool-button" id="playButton" type="button">
+              <i id="playIcon" data-lucide="play"></i><span id="playLabel">Play</span>
+            </button>
+            <button class="tool-button" id="resetButton" type="button">
+              <i data-lucide="rotate-ccw"></i><span>Today</span>
+            </button>
+          </div>
+        </div>
+        <div class="time-scale">
+          <div class="ticks" id="ticks"></div>
+          <div class="range-track"><div id="progressFill"></div></div>
+          <input id="timeline" type="range" min="-250" max="250" step="1" value="0" aria-label="Deep time timeline" />
+        </div>
+        <div class="time-legend">
+          <span>Geologic past</span>
+          <span>Present</span>
+          <span>Speculative future</span>
+        </div>
+      </section>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

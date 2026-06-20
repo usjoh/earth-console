@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="1024" viewBox="0 0 2048 1024">
+  <defs>
+    <linearGradient id="water" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#3aa6ff"/>
+      <stop offset="46%" stop-color="#1979d6"/>
+      <stop offset="100%" stop-color="#0752a5"/>
+    </linearGradient>
+    <pattern id="tiles" width="96" height="96" patternUnits="userSpaceOnUse">
+      <path d="M0 0H96V96H0Z" fill="none" stroke="#8cdcff" stroke-opacity="0.12" stroke-width="3"/>
+      <path d="M0 48H96M48 0V96" fill="none" stroke="#005cb2" stroke-opacity="0.12" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="2048" height="1024" fill="url(#water)"/>
+  <rect width="2048" height="1024" fill="url(#tiles)" opacity="0.72"/>
+  <path d="M0 690 C270 640 440 724 720 670 C1010 616 1260 708 1540 646 C1760 598 1920 636 2048 608 L2048 1024 L0 1024 Z" fill="#06488d" opacity="0.3"/>
+  <path d="M0 300 C320 250 540 332 820 278 C1080 228 1300 312 1580 256 C1810 212 1950 250 2048 220" fill="none" stroke="#a8ecff" stroke-width="5" opacity="0.2"/>
+</svg>

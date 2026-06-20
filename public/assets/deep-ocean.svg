@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="1024" viewBox="0 0 2048 1024">
+  <defs>
+    <radialGradient id="g" cx="45%" cy="38%" r="72%">
+      <stop offset="0%" stop-color="#0f3854"/>
+      <stop offset="48%" stop-color="#061f35"/>
+      <stop offset="100%" stop-color="#020812"/>
+    </radialGradient>
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.011" numOctaves="4" seed="9"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.16"/>
+      </feComponentTransfer>
+    </filter>
+  </defs>
+  <rect width="2048" height="1024" fill="url(#g)"/>
+  <rect width="2048" height="1024" filter="url(#noise)" opacity="0.26"/>
+  <path d="M0 470 C220 430 340 500 540 462 C760 420 930 480 1160 442 C1360 410 1540 452 1720 430 C1880 410 1980 388 2048 398 L2048 1024 L0 1024 Z" fill="#03101f" opacity="0.34"/>
+  <path d="M0 718 C260 680 500 728 760 694 C1020 660 1240 716 1500 682 C1740 650 1930 694 2048 670" fill="none" stroke="#1f6f91" stroke-width="3" opacity="0.2"/>
+  <path d="M0 270 C240 236 430 296 650 260 C850 228 1040 286 1250 250 C1470 212 1660 266 1860 236 C1940 224 2005 212 2048 220" fill="none" stroke="#4aa8bd" stroke-width="2" opacity="0.16"/>
+</svg>

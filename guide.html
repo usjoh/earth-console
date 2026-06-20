@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Earth Console Guide</title>
+    <link rel="stylesheet" href="./src/guide.css" />
+  </head>
+  <body>
+    <header class="guide-topbar">
+      <a class="back-link" href="./">Earth Console</a>
+      <div>
+        <div class="eyebrow">User guide</div>
+        <h1>Understanding The Planet Control Panel</h1>
+      </div>
+    </header>
+
+    <main class="guide-shell">
+      <section class="guide-hero">
+        <div>
+          <p class="kicker">What this version is trying to be</p>
+          <h2>A globe for asking, “where was this place when the continents were somewhere else?”</h2>
+        </div>
+        <p>
+          Earth Console combines a realistic present-day globe with reconstructed deep-time layers.
+          The central idea is not just to show a dot moving through time, but to let that dot sit in
+          context: modern borders, ancient coastlines, plate outlines, rough motion directions, and
+          boundary zones can be switched on or off depending on the question.
+        </p>
+      </section>
+
+      <section class="guide-grid">
+        <article class="guide-card">
+          <h3>The Three Time Regimes</h3>
+          <dl>
+            <div>
+              <dt>Geologic past, -250 Ma to -10 Ma</dt>
+              <dd>
+                Uses GPlates Muller2019 data for reconstructed place positions, coastlines, and plate
+                polygons. This is the most science-grounded part of the prototype.
+              </dd>
+            </div>
+            <div>
+              <dt>Present, 0 Ma</dt>
+              <dd>
+                Uses the realistic Blue Marble-style Earth texture plus Natural Earth modern country
+                borders. This is the reference state everything passes through.
+              </dd>
+            </div>
+            <div>
+              <dt>Future, +25 Ma to +250 Ma</dt>
+              <dd>
+                Uses broad hand-authored continent drift vectors. It is deliberately labeled scenario
+                mode because future plate evolution is uncertain and model-dependent.
+              </dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="guide-card">
+          <h3>What The Timeline Does</h3>
+          <p>
+            Dragging the timeline changes the active reconstruction year. The top readouts tell you
+            which model and layer family are being used. Expedition buttons are shortcuts to useful
+            moments: Pangaea, Cretaceous, Today, and several future scenario jumps.
+          </p>
+          <p>
+            The Play button increments time continuously. In the past, the app loads the closest cached
+            GPlates snapshot; between snapshots, tracked places interpolate smoothly while coastlines
+            and plates step between the nearest available reconstruction.
+          </p>
+        </article>
+
+        <article class="guide-card">
+          <h3>Focus: Places And Countries</h3>
+          <p>
+            The Focus selector chooses the active object. Cities use their present-day coordinates.
+            Countries use the Natural Earth label point, which is roughly a country centroid suitable
+            for tracking the country as a representative point.
+          </p>
+          <p>
+            This means “Ireland” is not every rock in Ireland deforming perfectly. It is an approximate
+            track for Ireland’s present-day country label point through the reconstruction model.
+          </p>
+        </article>
+
+        <article class="guide-card">
+          <h3>Lenses</h3>
+          <dl>
+            <div>
+              <dt>Tectonic</dt>
+              <dd>Emphasizes reconstructed land, plate polygons, motion arrows, trails, and boundary zones.</dd>
+            </div>
+            <div>
+              <dt>Political</dt>
+              <dd>Makes country identity easier to read by strengthening present-day country coloring.</dd>
+            </div>
+            <div>
+              <dt>Physical</dt>
+              <dd>Lets the Earth surface carry the view by making political overlays quieter.</dd>
+            </div>
+            <div>
+              <dt>Roblox</dt>
+              <dd>
+                A playable solid-surface lens with bright country regions, a close camera, and a small
+                avatar. Dragging walks the avatar across the surface, pinch or wheel zoom changes the
+                camera distance, and touch devices add lower-corner thumb pads for movement and turning.
+                When zoomed close, the camera drops into a lower chase angle behind the avatar. It shifts
+                modern country shapes by their reconstructed label-point movement, so it is a readability/play
+                layer rather than the strict GPlates coastline view.
+              </dd>
+            </div>
+          </dl>
+        </article>
+      </section>
+
+      <section class="wide-section">
+        <div class="section-heading">
+          <p class="kicker">Layer guide</p>
+          <h2>What Each Switch Means</h2>
+        </div>
+        <div class="layer-table">
+          <div>
+            <h3>Reconstructed land</h3>
+            <p>
+              In the past, this draws GPlates reconstructed coastline traces on a neutral ocean base.
+              It avoids treating coastline rings as a solid land mask, because those rings can wrap
+              oddly near seams and poles at supercontinent times. In the future, it draws
+              scenario-shifted modern land.
+            </p>
+          </div>
+          <div>
+            <h3>Country borders</h3>
+            <p>
+              Shows modern Natural Earth country boundaries. Useful for recognizing present-day countries,
+              but it can be conceptually misleading in deep time because political borders did not exist.
+            </p>
+          </div>
+          <div>
+            <h3>Plate polygons</h3>
+            <p>
+              Shows GPlates topology snapshots. These are plate-model surfaces, not country or coastline
+              shapes. They help explain which moving plate region a location belongs to.
+            </p>
+          </div>
+          <div>
+            <h3>Plate motion</h3>
+            <p>
+              Surface arrows indicate broad plate motion. Longer arrows represent faster plate movement,
+              and the animated glow under each arrow shows direction. They stay close to the globe surface,
+              more like a wind-direction chart, so they should be read as motion across the crust rather than
+              flight paths above Earth.
+            </p>
+          </div>
+          <div>
+            <h3>Orientation grid</h3>
+            <p>
+              Adds external pole extensions, meridians, latitude guides, and a highlighted equator. This is
+              meant to help you stay oriented when the familiar present-day surface texture is replaced by
+              reconstructed coastlines.
+            </p>
+          </div>
+          <div>
+            <h3>Boundary zones</h3>
+            <p>
+              Highlights a few recognizable modern tectonic interactions: the Mid-Atlantic Ridge,
+              Himalaya, Andes, and East African Rift. This layer is educational scaffolding, not a full
+              global boundary dataset yet.
+            </p>
+          </div>
+          <div>
+            <h3>Selected trail</h3>
+            <p>
+              Draws the active place or country track between present and the selected time. It helps answer
+              “how did this place get from there to here?”
+            </p>
+          </div>
+          <div>
+            <h3>Reference trails</h3>
+            <p>
+              Adds a small set of comparison tracks for saved places. It is off by default because multiple
+              trails can look like accidental ghosts when you are focused on one country.
+            </p>
+          </div>
+          <div>
+            <h3>Labels</h3>
+            <p>
+              Shows the selected object label and boundary-zone labels on the globe. If Reference trails are
+              on, their labels may also appear.
+            </p>
+          </div>
+          <div>
+            <h3>Atmosphere and Star field</h3>
+            <p>
+              Purely visual depth cues. They make the globe feel spatial and alive, but they do not change
+              the scientific data.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="guide-grid">
+        <article class="guide-card accent">
+          <h3>How To Read Ireland Through Time</h3>
+          <ol>
+            <li>Select Ireland in Focus.</li>
+            <li>Leave Reconstructed land, Selected trail, Labels, and Plate polygons on.</li>
+            <li>Jump to Pangaea or drag into the geologic past.</li>
+            <li>Watch the Ireland label and trail relative to the reconstructed coastlines.</li>
+            <li>Return toward Present to see the track reconnect with the familiar modern North Atlantic.</li>
+          </ol>
+        </article>
+
+        <article class="guide-card accent">
+          <h3>Good Feedback To Give</h3>
+          <p>
+            Useful feedback can separate visual confusion from model limitations. For example:
+          </p>
+          <ul>
+            <li>“I understand this is an approximate centroid, but the label placement is hard to read.”</li>
+            <li>“The coastline layer helps, but I need clearer land/ocean contrast at 250 Ma.”</li>
+            <li>“Plate arrows are useful, but I cannot tell whether they mean past motion or future motion.”</li>
+            <li>“Country borders in deep time are helpful as references, but they should look less official.”</li>
+          </ul>
+        </article>
+
+        <article class="guide-card">
+          <h3>Known Limits</h3>
+          <ul>
+            <li>The future is a scenario sketch, not a validated prediction.</li>
+            <li>Country tracks use representative points, not full deforming country shapes.</li>
+            <li>Boundary zones are a small curated set, not a global plate-boundary database.</li>
+            <li>Reconstructed coastlines and plate polygons update by cached snapshot, not continuously every year.</li>
+            <li>Modern political borders are useful for recognition but historically inappropriate in deep time.</li>
+          </ul>
+        </article>
+
+        <article class="guide-card">
+          <h3>Data Sources</h3>
+          <ul>
+            <li>GPlates Web Service, Muller2019 model: past points, coastlines, and plate polygons.</li>
+            <li>Natural Earth 1:110m: present-day country geometry and labels.</li>
+            <li>Local scenario vectors: future land drift and future motion arrows.</li>
+          </ul>
+          <p>
+            The app precomputes data into <code>/public/data</code>, so ordinary use does not depend on live
+            calls to the GPlates service.
+          </p>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
