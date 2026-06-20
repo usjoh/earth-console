@@ -26,10 +26,10 @@ const PLATE_SNAPSHOTS = [0, 10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250];
 const PAST_TIMES = [-250, -225, -200, -175, -150, -125, -100, -75, -50, -25, -10, 0];
 const KEY_TIMES = [-250, -200, -150, -100, -50, 0, 50, 100, 150, 200, 250];
 const REFERENCE_TRACK_IDS = ["yerevan", "boston", "country-ARM", "country-USA", "country-IND"];
-const ROBLOX_DEFAULT_CAMERA_ALTITUDE = 0.025;
 const ROBLOX_MIN_CAMERA_ALTITUDE = 0.002;
 const ROBLOX_SURFACE_CAMERA_THRESHOLD = 0.72;
 const ROBLOX_MAX_CAMERA_ALTITUDE = 1.8;
+const ROBLOX_DEFAULT_CAMERA_ALTITUDE = ROBLOX_MAX_CAMERA_ALTITUDE;
 const ROBLOX_KEY_STEP_DEGREES = 3.2;
 const ROBLOX_DRAG_DEGREES_PER_PX = 0.085;
 const ROBLOX_THUMB_RADIUS_PX = 58;
@@ -147,6 +147,7 @@ const state = {
     lng: null,
     altitude: ROBLOX_DEFAULT_CAMERA_ALTITUDE,
     heading: { lat: 1, lng: 0 },
+    cameraYaw: 0,
     followFocus: true,
     walkingUntil: 0,
     animationFrame: null,
@@ -511,8 +512,8 @@ function buildReconstructedOutlinePaths() {
     .slice(0, 420)
     .flatMap(({ feature, featureIndex }) =>
       polygonOuterRings(feature.geometry).flatMap((ring, ringIndex) => {
-        const basePoints = ring.map(([lng, lat]) => [lat, normalizeLng(lng), 0.079]);
-        const highlightPoints = ring.map(([lng, lat]) => [lat, normalizeLng(lng), 0.083]);
+        const basePoints = ring.map(([lng, lat]) => [lat, normalizeLng(lng), 0.018]);
+        const highlightPoints = ring.map(([lng, lat]) => [lat, normalizeLng(lng), 0.02]);
         return [
           {
             id: `reconstructed-outline-shadow-${snapshot}-${featureIndex}-${ringIndex}`,
@@ -742,7 +743,7 @@ function arrowGlyphPaths(vector, anchor, index, color, glowColor) {
     shaft.push([
       startLat + (endLat - startLat) * u,
       interpolateLng(startLng, endLng, u),
-      0.082,
+      0.03,
     ]);
   }
 
@@ -751,12 +752,12 @@ function arrowGlyphPaths(vector, anchor, index, color, glowColor) {
   const baseLat = clampLat(endLat - unitLat * headLength);
   const baseLng = normalizeLng(endLng - unitLng * headLength);
   const left = [
-    [endLat, endLng, 0.084],
-    [clampLat(baseLat + perpLat * headWidth), normalizeLng(baseLng + perpLng * headWidth), 0.084],
+    [endLat, endLng, 0.032],
+    [clampLat(baseLat + perpLat * headWidth), normalizeLng(baseLng + perpLng * headWidth), 0.032],
   ];
   const right = [
-    [endLat, endLng, 0.084],
-    [clampLat(baseLat - perpLat * headWidth), normalizeLng(baseLng - perpLng * headWidth), 0.084],
+    [endLat, endLng, 0.032],
+    [clampLat(baseLat - perpLat * headWidth), normalizeLng(baseLng - perpLng * headWidth), 0.032],
   ];
 
   return [
@@ -927,7 +928,7 @@ function activeRobloxPosition() {
 function updateRobloxHud() {
   const hud = qs("#robloxHud");
   if (!hud) return;
-  hud.hidden = !isRobloxLens();
+  hud.hidden = !isRobloxSurfaceView();
   const position = activeRobloxPosition();
   const readout = qs("#robloxPosition");
   if (readout) readout.textContent = `${position.lat.toFixed(1)} lat, ${position.lng.toFixed(1)} lng`;
@@ -939,8 +940,38 @@ function robloxCoords(lat, lng, altitude = 0.11) {
     : { x: 0, y: 100 * (1 + altitude), z: 0 };
 }
 
-function robloxForwardVector(position, normal, origin) {
-  const heading = state.roblox.heading || { lat: 1, lng: 0 };
+function robloxHeadingBasis(position, heading = state.roblox.heading || { lat: 1, lng: 0 }, yaw = 0) {
+  const latFactor = Math.max(0.28, Math.cos((position.lat * Math.PI) / 180));
+  let east = (heading.lng || 0) * latFactor;
+  let north = heading.lat || 0;
+  const magnitude = Math.hypot(east, north) || 1;
+  east /= magnitude;
+  north /= magnitude;
+  if (Math.abs(yaw) > 0.0001) {
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    const rotatedEast = east * cos + north * sin;
+    const rotatedNorth = north * cos - east * sin;
+    east = rotatedEast;
+    north = rotatedNorth;
+  }
+  const forward = { x: east, y: north };
+  return {
+    forward,
+    right: { x: forward.y, y: -forward.x },
+  };
+}
+
+function robloxCameraHeading(position) {
+  const basis = robloxHeadingBasis(position, state.roblox.heading, state.roblox.cameraYaw || 0);
+  const latFactor = Math.max(0.28, Math.cos((position.lat * Math.PI) / 180));
+  return {
+    lat: basis.forward.y,
+    lng: basis.forward.x / latFactor,
+  };
+}
+
+function robloxForwardVector(position, normal, origin, heading = state.roblox.heading || { lat: 1, lng: 0 }) {
   const latFactor = Math.max(0.28, Math.cos((position.lat * Math.PI) / 180));
   const magnitude = Math.hypot(heading.lat || 0, (heading.lng || 0) * latFactor) || 1;
   const ahead = robloxCoords(
@@ -1001,16 +1032,7 @@ function robloxSurfaceOrigin(width, height) {
 }
 
 function robloxSurfaceHeadingBasis(position) {
-  const heading = state.roblox.heading || { lat: 1, lng: 0 };
-  const latFactor = Math.max(0.28, Math.cos((position.lat * Math.PI) / 180));
-  const east = (heading.lng || 0) * latFactor;
-  const north = heading.lat || 0;
-  const magnitude = Math.hypot(east, north) || 1;
-  const forward = { x: east / magnitude, y: north / magnitude };
-  return {
-    forward,
-    right: { x: forward.y, y: -forward.x },
-  };
+  return robloxHeadingBasis(position, state.roblox.heading, state.roblox.cameraYaw || 0);
 }
 
 function robloxSurfaceProjection(width, height, position) {
@@ -1405,18 +1427,20 @@ function moveRobloxAvatarByThumbInput(vectorX, vectorY, frameScale) {
   const amount = Math.hypot(vectorX, vectorY);
   if (amount < 0.04) return;
   const position = activeRobloxPosition();
-  const surface = robloxCoords(position.lat, position.lng, 0.11);
-  const normal = new THREE.Vector3(surface.x, surface.y, surface.z).normalize();
-  const forward = robloxForwardVector(position, normal, surface);
-  const right = new THREE.Vector3().crossVectors(normal, forward).normalize();
+  const surfaceBase = robloxCoords(position.lat, position.lng, 0);
+  const normal = new THREE.Vector3(surfaceBase.x, surfaceBase.y, surfaceBase.z).normalize();
+  const { right, up } = fallbackRobloxMovementBasis(
+    position,
+    normal,
+    new THREE.Vector3(surfaceBase.x, surfaceBase.y, surfaceBase.z),
+  );
   const direction = new THREE.Vector3()
     .addScaledVector(right, vectorX)
-    .addScaledVector(forward, -vectorY);
+    .addScaledVector(up, -vectorY);
   moveRobloxAvatarAlongTangent(
     direction,
     amount * ROBLOX_JOYSTICK_MOVE_PX_PER_FRAME * frameScale,
     0,
-    { preserveHeading: true },
   );
 }
 
@@ -1451,6 +1475,15 @@ function rotateRobloxHeading(radians, duration = 0) {
   const normal = new THREE.Vector3(surface.x, surface.y, surface.z).normalize();
   const forward = robloxForwardVector(position, normal, surface).applyAxisAngle(normal, -radians);
   setRobloxHeadingFromForward(position, forward, duration);
+}
+
+function rotateRobloxCamera(radians, duration = 0) {
+  if (!isRobloxSurfaceView() || Math.abs(radians) < 0.0001) return;
+  state.roblox.cameraYaw += radians;
+  while (state.roblox.cameraYaw > Math.PI) state.roblox.cameraYaw -= Math.PI * 2;
+  while (state.roblox.cameraYaw < -Math.PI) state.roblox.cameraYaw += Math.PI * 2;
+  pointRobloxCameraAtAvatar(duration);
+  renderRobloxSurface();
 }
 
 function updateRobloxAvatarObject() {
@@ -1530,7 +1563,7 @@ function pointRobloxCameraAtAvatar(duration = 240) {
   const surfaceBase = robloxCoords(position.lat, position.lng, 0);
   const surface = robloxCoords(position.lat, position.lng, 0.11);
   const normal = new THREE.Vector3(surface.x, surface.y, surface.z).normalize();
-  const forward = robloxForwardVector(position, normal, surface);
+  const forward = robloxForwardVector(position, normal, surface, robloxCameraHeading(position));
   const surfacePoint = new THREE.Vector3(surface.x, surface.y, surface.z);
   const globeRadius = new THREE.Vector3(surfaceBase.x, surfaceBase.y, surfaceBase.z).length() || 100;
   const overheadHeight = globeRadius * (0.38 + state.roblox.altitude * 0.72);
@@ -1592,8 +1625,12 @@ function pointRobloxCameraAtAvatar(duration = 240) {
 
 function setRobloxCameraAltitude(altitude, duration = 120) {
   if (!isRobloxLens()) return;
+  const wasSurfaceView = isRobloxSurfaceView();
   state.roblox.altitude = clamp(altitude, ROBLOX_MIN_CAMERA_ALTITUDE, ROBLOX_MAX_CAMERA_ALTITUDE);
   updateRobloxViewMode();
+  if (!wasSurfaceView && isRobloxSurfaceView()) pausePlayback();
+  if (wasSurfaceView && !isRobloxSurfaceView()) resetRobloxGestureState();
+  updateRobloxHud();
   pointRobloxCameraAtAvatar(duration);
   renderRobloxSurface();
 }
@@ -1632,7 +1669,7 @@ function resetRobloxAvatarToFocus() {
 }
 
 function moveRobloxAvatar(direction) {
-  if (!isRobloxLens()) return;
+  if (!isRobloxSurfaceView()) return;
   const position = activeRobloxPosition();
   const step = ROBLOX_KEY_STEP_DEGREES * THREE.MathUtils.lerp(1, 0.38, robloxSurfaceModeBlend());
   const next = { ...position };
@@ -1690,13 +1727,15 @@ function startRobloxPinch() {
 function startRobloxSurfaceDrag(event) {
   if (!isRobloxLens() || event.button > 0) return;
   state.roblox.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-  event.currentTarget.setPointerCapture?.(event.pointerId);
   if (state.roblox.pointers.size >= 2) {
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     startRobloxPinch();
     event.preventDefault();
     event.stopPropagation();
     return;
   }
+  if (!isRobloxSurfaceView()) return;
+  event.currentTarget.setPointerCapture?.(event.pointerId);
   activeRobloxPosition();
   const basis = robloxScreenMovementBasis(activeRobloxPosition());
   state.roblox.followFocus = false;
@@ -1727,6 +1766,7 @@ function moveRobloxSurfaceDrag(event) {
     event.stopPropagation();
     return;
   }
+  if (!isRobloxSurfaceView()) return;
 
   const drag = state.roblox.drag;
   if (!drag.active || event.pointerId !== drag.pointerId) return;
@@ -1749,6 +1789,9 @@ function endRobloxSurfaceDrag(event) {
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   } catch {
     // Pointer capture can already be gone if the browser cancels a touch gesture.
+  }
+  if (!isRobloxSurfaceView() && !state.roblox.pinch.active) {
+    return;
   }
   if (state.roblox.pointers.size >= 2) {
     startRobloxPinch();
@@ -1787,13 +1830,13 @@ function robloxThumbControl(kind) {
 
 function updateRobloxThumbStick(kind) {
   const control = robloxThumbControl(kind);
-  const stick = qs(kind === "move" ? "#robloxMoveStick" : "#robloxLookStick");
-  const pad = qs(`[data-roblox-pad="${kind}"]`);
-  if (!stick || !pad) return;
   const x = control.vectorX * ROBLOX_THUMB_RADIUS_PX;
   const y = control.vectorY * ROBLOX_THUMB_RADIUS_PX;
-  stick.style.transform = `translate(${x}px, ${y}px)`;
-  pad.classList.toggle("is-active", control.active);
+  document.querySelectorAll(`[data-roblox-pad="${kind}"]`).forEach((pad) => {
+    const stick = pad.querySelector(".thumb-stick");
+    if (stick) stick.style.transform = `translate(${x}px, ${y}px)`;
+    pad.classList.toggle("is-active", control.active);
+  });
 }
 
 function resetRobloxThumbControl(kind) {
@@ -1823,7 +1866,7 @@ function robloxThumbControlsActive() {
 }
 
 function stepRobloxThumbControls(now) {
-  if (!isRobloxLens()) {
+  if (!isRobloxSurfaceView()) {
     resetRobloxThumbControl("move");
     resetRobloxThumbControl("look");
     state.roblox.controls.frame = null;
@@ -1843,7 +1886,7 @@ function stepRobloxThumbControls(now) {
   const look = state.roblox.controls.look;
   if (look.active) {
     if (Math.abs(look.vectorX) > 0.04) {
-      rotateRobloxHeading(look.vectorX * ROBLOX_JOYSTICK_TURN_RAD_PER_FRAME * frameScale, 0);
+      rotateRobloxCamera(look.vectorX * ROBLOX_JOYSTICK_TURN_RAD_PER_FRAME * frameScale, 0);
     }
     if (Math.abs(look.vectorY) > 0.08) {
       setRobloxCameraAltitude(
@@ -1868,7 +1911,7 @@ function ensureRobloxThumbLoop() {
 }
 
 function startRobloxThumbControl(event) {
-  if (!isRobloxLens() || event.button > 0) return;
+  if (!isRobloxSurfaceView() || event.button > 0) return;
   const pad = event.currentTarget;
   const kind = pad.dataset.robloxPad;
   if (!kind) return;
@@ -2091,13 +2134,14 @@ function updateLensMode() {
   }
   const controls = state.globe?.controls?.();
   if (controls) {
-    controls.autoRotate = !isRobloxLens();
-    controls.autoRotateSpeed = isRobloxLens() ? 0 : 0.28;
-    controls.enableRotate = !isRobloxLens();
-    controls.enablePan = !isRobloxLens();
-    controls.enableZoom = !isRobloxLens();
+    const surfaceActive = isRobloxSurfaceView();
+    controls.autoRotate = !surfaceActive;
+    controls.autoRotateSpeed = surfaceActive ? 0 : 0.28;
+    controls.enableRotate = !surfaceActive;
+    controls.enablePan = !surfaceActive;
+    controls.enableZoom = !surfaceActive;
     controls.enableDamping = true;
-    controls.dampingFactor = isRobloxLens() ? 0.12 : 0.08;
+    controls.dampingFactor = surfaceActive ? 0.12 : 0.08;
   }
   if (!isRobloxLens()) {
     const camera = state.globe?.camera?.();
@@ -2134,10 +2178,10 @@ function updateGlobe() {
       return countryCapColor(feature);
     })
     .polygonSideColor((feature) => {
-      if (feature.appKind === "roblox-land") return "rgba(19, 31, 44, 0.72)";
-      if (feature.appKind === "plate") return isReconstructionView() ? "rgba(0, 0, 0, 0)" : "rgba(20, 27, 38, 0.05)";
+      if (feature.appKind === "roblox-land") return "rgba(0, 0, 0, 0)";
+      if (feature.appKind === "plate") return "rgba(0, 0, 0, 0)";
       if (feature.appKind === "reconstructed-land" || feature.appKind === "future-land") return "rgba(0, 0, 0, 0)";
-      return "rgba(10, 18, 28, 0.12)";
+      return "rgba(0, 0, 0, 0)";
     })
     .polygonStrokeColor((feature) => {
       if (feature.appKind === "roblox-land") return countryStrokeColor(feature);
@@ -2148,13 +2192,13 @@ function updateGlobe() {
     .polygonAltitude((feature) => {
       if (feature.appKind === "roblox-land") {
         const selected = selectedPoint();
-        return selected.kind === "country" && feature.properties.APP_ID === selected.iso ? 0.08 : 0.055;
+        return selected.kind === "country" && feature.properties.APP_ID === selected.iso ? 0.016 : 0.01;
       }
-      if (feature.appKind === "plate") return isReconstructionView() ? 0.056 : state.lens === "tectonic" ? 0.018 : 0.008;
-      if (feature.appKind === "reconstructed-land" || feature.appKind === "future-land") return 0.036;
+      if (feature.appKind === "plate") return isReconstructionView() ? 0.016 : state.lens === "tectonic" ? 0.007 : 0.003;
+      if (feature.appKind === "reconstructed-land" || feature.appKind === "future-land") return 0.012;
       const selected = selectedPoint();
-      if (selected.kind === "country" && feature.properties.APP_ID === selected.iso) return state.time === 0 ? 0.03 : 0.052;
-      return state.time === 0 ? (state.lens === "political" ? 0.012 : 0.006) : 0.05;
+      if (selected.kind === "country" && feature.properties.APP_ID === selected.iso) return state.time === 0 ? 0.012 : 0.018;
+      return state.time === 0 ? (state.lens === "political" ? 0.004 : 0.002) : 0.016;
     })
     .pointsData(isRobloxLens() ? [] : buildPointData())
     .labelsData(buildLabelData())
@@ -2184,8 +2228,16 @@ async function setTime(time) {
 }
 
 function setLens(lens) {
+  const previousLens = state.lens;
   state.lens = lens;
-  if (isRobloxLens()) state.roblox.followFocus = true;
+  if (isRobloxLens()) {
+    state.roblox.followFocus = true;
+    if (previousLens !== "roblox") {
+      state.roblox.altitude = ROBLOX_DEFAULT_CAMERA_ALTITUDE;
+      state.roblox.cameraYaw = 0;
+      resetRobloxGestureState();
+    }
+  }
   document.querySelectorAll("[data-lens]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.lens === lens);
   });
@@ -2210,6 +2262,14 @@ function togglePlayback() {
     window.clearInterval(state.timer);
     state.timer = null;
   }
+  updateReadouts();
+}
+
+function pausePlayback() {
+  if (!state.playing) return;
+  state.playing = false;
+  window.clearInterval(state.timer);
+  state.timer = null;
   updateReadouts();
 }
 
@@ -2294,7 +2354,7 @@ function buildControls() {
   qs("#panelScrim").addEventListener("click", () => setPanelOpen(false));
   window.addEventListener("keydown", (event) => {
     if (event.key === "Escape") setPanelOpen(false);
-    if (!isRobloxLens()) return;
+    if (!isRobloxSurfaceView()) return;
     if (["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(document.activeElement?.tagName)) return;
     const movement = {
       ArrowUp: "north",

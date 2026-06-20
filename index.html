@@ -194,30 +194,54 @@
         </section>
       </aside>
 
-      <section class="bottom-console" aria-label="Time controls">
-        <div class="transport">
-          <div>
-            <div class="control-label">Timeline</div>
-            <p class="fine-print">Past from GPlates. Future is scenario mode.</p>
+      <section class="bottom-console" aria-label="Mode controls">
+        <div class="timeline-console">
+          <div class="transport">
+            <div>
+              <div class="control-label">Timeline</div>
+              <p class="fine-print">Past from GPlates. Future is scenario mode.</p>
+            </div>
+            <div class="transport-actions">
+              <button class="tool-button" id="playButton" type="button">
+                <i id="playIcon" data-lucide="play"></i><span id="playLabel">Play</span>
+              </button>
+              <button class="tool-button" id="resetButton" type="button">
+                <i data-lucide="rotate-ccw"></i><span>Today</span>
+              </button>
+            </div>
           </div>
-          <div class="transport-actions">
-            <button class="tool-button" id="playButton" type="button">
-              <i id="playIcon" data-lucide="play"></i><span id="playLabel">Play</span>
-            </button>
-            <button class="tool-button" id="resetButton" type="button">
-              <i data-lucide="rotate-ccw"></i><span>Today</span>
-            </button>
+          <div class="time-scale">
+            <div class="ticks" id="ticks"></div>
+            <div class="range-track"><div id="progressFill"></div></div>
+            <input id="timeline" type="range" min="-250" max="250" step="1" value="0" aria-label="Deep time timeline" />
+          </div>
+          <div class="time-legend">
+            <span>Geologic past</span>
+            <span>Present</span>
+            <span>Speculative future</span>
           </div>
         </div>
-        <div class="time-scale">
-          <div class="ticks" id="ticks"></div>
-          <div class="range-track"><div id="progressFill"></div></div>
-          <input id="timeline" type="range" min="-250" max="250" step="1" value="0" aria-label="Deep time timeline" />
-        </div>
-        <div class="time-legend">
-          <span>Geologic past</span>
-          <span>Present</span>
-          <span>Speculative future</span>
+        <div class="map-console" aria-label="Surface navigation">
+          <div class="map-control-card">
+            <div class="control-label">Move</div>
+            <div class="thumb-pad map-thumb-pad" data-roblox-pad="move" aria-label="Move avatar">
+              <span class="pad-mark pad-mark-up">N</span>
+              <span class="pad-mark pad-mark-left">W</span>
+              <span class="pad-mark pad-mark-right">E</span>
+              <span class="pad-mark pad-mark-down">S</span>
+              <div class="thumb-ring"><div class="thumb-stick"></div></div>
+            </div>
+          </div>
+          <div class="map-control-card">
+            <div class="control-label">Camera</div>
+            <div class="thumb-pad map-thumb-pad" data-roblox-pad="look" aria-label="Camera and zoom">
+              <span class="pad-mark pad-mark-up">+</span>
+              <span class="pad-mark pad-mark-left">&lt;</span>
+              <span class="pad-mark pad-mark-right">&gt;</span>
+              <span class="pad-mark pad-mark-down">-</span>
+              <div class="thumb-ring"><div class="thumb-stick"></div></div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
