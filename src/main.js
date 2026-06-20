@@ -28,6 +28,7 @@ const KEY_TIMES = [-250, -200, -150, -100, -50, 0, 50, 100, 150, 200, 250];
 const REFERENCE_TRACK_IDS = ["yerevan", "boston", "country-ARM", "country-USA", "country-IND"];
 const ROBLOX_DEFAULT_CAMERA_ALTITUDE = 0.34;
 const ROBLOX_MIN_CAMERA_ALTITUDE = 0.01;
+const ROBLOX_SURFACE_CAMERA_THRESHOLD = 0.18;
 const ROBLOX_MAX_CAMERA_ALTITUDE = 1.8;
 const ROBLOX_KEY_STEP_DEGREES = 3.2;
 const ROBLOX_DRAG_DEGREES_PER_PX = 0.085;
@@ -135,6 +136,8 @@ const state = {
   countryTrackIndex: new Map(),
   globe: null,
   defaultCameraFov: null,
+  defaultCameraNear: null,
+  defaultCameraFar: null,
   axisObject: null,
   robloxAvatar: null,
   roblox: {
@@ -1014,8 +1017,9 @@ function moveRobloxAvatarAlongTangent(direction, pixels, duration = 0, options =
   const tangent = projectRobloxTangent(direction, normal);
   if (!tangent || pixels < 0.5) return;
 
-  const closeMovementScale = THREE.MathUtils.lerp(0.72, 0.22, robloxCameraBlend());
-  const angle = Math.min(0.12, pixels * ROBLOX_DRAG_DEGREES_PER_PX * closeMovementScale * (Math.PI / 180));
+  const surfaceBlend = robloxSurfaceModeBlend();
+  const angleLimit = THREE.MathUtils.lerp(0.12, 0.035, surfaceBlend);
+  const angle = Math.min(angleLimit, pixels * ROBLOX_DRAG_DEGREES_PER_PX * robloxMovementScale() * (Math.PI / 180));
   const nextNormal = normal
     .clone()
     .multiplyScalar(Math.cos(angle))
@@ -1134,10 +1138,25 @@ function robloxCameraBlend() {
   return rawChaseBlend * rawChaseBlend * (3 - 2 * rawChaseBlend);
 }
 
+function robloxSurfaceModeBlend() {
+  const rawSurfaceBlend = clamp(
+    (ROBLOX_SURFACE_CAMERA_THRESHOLD - state.roblox.altitude) / (ROBLOX_SURFACE_CAMERA_THRESHOLD - ROBLOX_MIN_CAMERA_ALTITUDE),
+    0,
+    1,
+  );
+  return rawSurfaceBlend * rawSurfaceBlend * (3 - 2 * rawSurfaceBlend);
+}
+
+function robloxMovementScale() {
+  const closeMovementScale = THREE.MathUtils.lerp(0.72, 0.22, robloxCameraBlend());
+  return THREE.MathUtils.lerp(closeMovementScale, 0.1, robloxSurfaceModeBlend());
+}
+
 function pointRobloxCameraAtAvatar(duration = 240) {
   if (!state.globe || !isRobloxLens()) return;
   const position = activeRobloxPosition();
   const chaseBlend = robloxCameraBlend();
+  const surfaceBlend = robloxSurfaceModeBlend();
   const surfaceBase = robloxCoords(position.lat, position.lng, 0);
   const surface = robloxCoords(position.lat, position.lng, 0.11);
   const normal = new THREE.Vector3(surface.x, surface.y, surface.z).normalize();
@@ -1145,10 +1164,30 @@ function pointRobloxCameraAtAvatar(duration = 240) {
   const surfacePoint = new THREE.Vector3(surface.x, surface.y, surface.z);
   const globeRadius = new THREE.Vector3(surfaceBase.x, surfaceBase.y, surfaceBase.z).length() || 100;
   const overheadHeight = globeRadius * (0.38 + state.roblox.altitude * 0.72);
-  const chaseHeight = globeRadius * THREE.MathUtils.lerp(0.24, 0.17, chaseBlend);
-  const behindDistance = globeRadius * THREE.MathUtils.lerp(0.04, 0.12, chaseBlend);
-  const lookAheadDistance = globeRadius * THREE.MathUtils.lerp(0.004, 0.006, chaseBlend);
-  const lookHeight = globeRadius * THREE.MathUtils.lerp(0.026, 0.075, chaseBlend);
+  const chaseHeightRatio = THREE.MathUtils.lerp(
+    THREE.MathUtils.lerp(0.24, 0.17, chaseBlend),
+    0.072,
+    surfaceBlend,
+  );
+  const behindDistanceRatio = THREE.MathUtils.lerp(
+    THREE.MathUtils.lerp(0.04, 0.12, chaseBlend),
+    0.06,
+    surfaceBlend,
+  );
+  const lookAheadRatio = THREE.MathUtils.lerp(
+    THREE.MathUtils.lerp(0.004, 0.006, chaseBlend),
+    0.026,
+    surfaceBlend,
+  );
+  const lookHeightRatio = THREE.MathUtils.lerp(
+    THREE.MathUtils.lerp(0.026, 0.075, chaseBlend),
+    0.032,
+    surfaceBlend,
+  );
+  const chaseHeight = globeRadius * chaseHeightRatio;
+  const behindDistance = globeRadius * behindDistanceRatio;
+  const lookAheadDistance = globeRadius * lookAheadRatio;
+  const lookHeight = globeRadius * lookHeightRatio;
   const radialCamera = surfacePoint.clone().addScaledVector(normal, overheadHeight);
   const chaseCamera = surfacePoint
     .clone()
@@ -1162,7 +1201,14 @@ function pointRobloxCameraAtAvatar(duration = 240) {
 
   const camera = state.globe.camera?.();
   if (!camera) return;
-  camera.fov = THREE.MathUtils.lerp(state.defaultCameraFov || 50, 46, chaseBlend);
+  const chaseFov = THREE.MathUtils.lerp(state.defaultCameraFov || 50, 46, chaseBlend);
+  camera.fov = THREE.MathUtils.lerp(chaseFov, 38, surfaceBlend);
+  if (state.defaultCameraNear != null) {
+    camera.near = THREE.MathUtils.lerp(state.defaultCameraNear, 0.02, surfaceBlend);
+  }
+  if (state.defaultCameraFar != null) {
+    camera.far = THREE.MathUtils.lerp(state.defaultCameraFar, globeRadius * 5.5, surfaceBlend);
+  }
   camera.position.copy(cameraPosition);
   camera.up.copy(normal);
   camera.lookAt(lookAt);
@@ -1214,7 +1260,7 @@ function resetRobloxAvatarToFocus() {
 function moveRobloxAvatar(direction) {
   if (!isRobloxLens()) return;
   const position = activeRobloxPosition();
-  const step = ROBLOX_KEY_STEP_DEGREES;
+  const step = ROBLOX_KEY_STEP_DEGREES * THREE.MathUtils.lerp(1, 0.38, robloxSurfaceModeBlend());
   const next = { ...position };
   if (direction === "north") next.lat += step;
   if (direction === "south") next.lat -= step;
@@ -1684,6 +1730,8 @@ function updateLensMode() {
     if (camera) {
       camera.up.set(0, 1, 0);
       if (state.defaultCameraFov) camera.fov = state.defaultCameraFov;
+      if (state.defaultCameraNear != null) camera.near = state.defaultCameraNear;
+      if (state.defaultCameraFar != null) camera.far = state.defaultCameraFar;
       camera.updateProjectionMatrix?.();
     }
   }
@@ -2019,7 +2067,10 @@ function initGlobe() {
     .arcDashAnimateTime(1800);
 
   const controls = state.globe.controls();
-  state.defaultCameraFov = state.globe.camera?.()?.fov || 50;
+  const camera = state.globe.camera?.();
+  state.defaultCameraFov = camera?.fov || 50;
+  state.defaultCameraNear = camera?.near ?? null;
+  state.defaultCameraFar = camera?.far ?? null;
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.28;
   controls.enableDamping = true;
