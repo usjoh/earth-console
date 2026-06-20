@@ -26,9 +26,9 @@ const PLATE_SNAPSHOTS = [0, 10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250];
 const PAST_TIMES = [-250, -225, -200, -175, -150, -125, -100, -75, -50, -25, -10, 0];
 const KEY_TIMES = [-250, -200, -150, -100, -50, 0, 50, 100, 150, 200, 250];
 const REFERENCE_TRACK_IDS = ["yerevan", "boston", "country-ARM", "country-USA", "country-IND"];
-const ROBLOX_DEFAULT_CAMERA_ALTITUDE = 0.34;
-const ROBLOX_MIN_CAMERA_ALTITUDE = 0.01;
-const ROBLOX_SURFACE_CAMERA_THRESHOLD = 0.18;
+const ROBLOX_DEFAULT_CAMERA_ALTITUDE = 0.025;
+const ROBLOX_MIN_CAMERA_ALTITUDE = 0.002;
+const ROBLOX_SURFACE_CAMERA_THRESHOLD = 0.72;
 const ROBLOX_MAX_CAMERA_ALTITUDE = 1.8;
 const ROBLOX_KEY_STEP_DEGREES = 3.2;
 const ROBLOX_DRAG_DEGREES_PER_PX = 0.085;
@@ -1114,7 +1114,9 @@ function updateRobloxAvatarAnimation() {
     const phase = window.performance.now() / 95;
     const swing = walking ? Math.sin(phase) * 0.62 : 0;
     const bob = walking ? Math.abs(Math.sin(phase)) * 0.045 : 0;
-    const avatarScale = isRobloxLens() ? THREE.MathUtils.lerp(1.15, 1.85, robloxCameraBlend()) : 1;
+    const avatarScale = isRobloxLens()
+      ? THREE.MathUtils.lerp(THREE.MathUtils.lerp(1.15, 1.85, robloxCameraBlend()), 3.25, robloxSurfaceModeBlend())
+      : 1;
     if (parts.leftLeg) parts.leftLeg.rotation.x = swing;
     if (parts.rightLeg) parts.rightLeg.rotation.x = -swing;
     if (parts.leftArm) parts.leftArm.rotation.x = -swing * 0.72;
@@ -1166,22 +1168,22 @@ function pointRobloxCameraAtAvatar(duration = 240) {
   const overheadHeight = globeRadius * (0.38 + state.roblox.altitude * 0.72);
   const chaseHeightRatio = THREE.MathUtils.lerp(
     THREE.MathUtils.lerp(0.24, 0.17, chaseBlend),
-    0.072,
+    0.012,
     surfaceBlend,
   );
   const behindDistanceRatio = THREE.MathUtils.lerp(
     THREE.MathUtils.lerp(0.04, 0.12, chaseBlend),
-    0.06,
+    0.032,
     surfaceBlend,
   );
   const lookAheadRatio = THREE.MathUtils.lerp(
     THREE.MathUtils.lerp(0.004, 0.006, chaseBlend),
-    0.026,
+    -0.05,
     surfaceBlend,
   );
   const lookHeightRatio = THREE.MathUtils.lerp(
     THREE.MathUtils.lerp(0.026, 0.075, chaseBlend),
-    0.032,
+    -0.055,
     surfaceBlend,
   );
   const chaseHeight = globeRadius * chaseHeightRatio;
@@ -1202,7 +1204,7 @@ function pointRobloxCameraAtAvatar(duration = 240) {
   const camera = state.globe.camera?.();
   if (!camera) return;
   const chaseFov = THREE.MathUtils.lerp(state.defaultCameraFov || 50, 46, chaseBlend);
-  camera.fov = THREE.MathUtils.lerp(chaseFov, 38, surfaceBlend);
+  camera.fov = THREE.MathUtils.lerp(chaseFov, 28, surfaceBlend);
   if (state.defaultCameraNear != null) {
     camera.near = THREE.MathUtils.lerp(state.defaultCameraNear, 0.02, surfaceBlend);
   }
