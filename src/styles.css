@@ -168,6 +168,8 @@ h1 {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  cursor: grab;
+  touch-action: none;
 }
 
 #globe canvas {
@@ -187,9 +189,7 @@ h1 {
 }
 
 .app-shell.lens-roblox #globe {
-  cursor: grab;
   opacity: 1;
-  touch-action: none;
   transition: opacity 180ms ease;
 }
 
