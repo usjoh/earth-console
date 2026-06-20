@@ -36,8 +36,8 @@ const ROBLOX_THUMB_RADIUS_PX = 58;
 const ROBLOX_JOYSTICK_MOVE_PX_PER_FRAME = 7.2;
 const ROBLOX_JOYSTICK_TURN_RAD_PER_FRAME = 0.03;
 const ROBLOX_JOYSTICK_ZOOM_PER_FRAME = 0.018;
-const ROBLOX_SURFACE_MIN_PX_PER_DEGREE = 16;
-const ROBLOX_SURFACE_MAX_PX_PER_DEGREE = 126;
+const ROBLOX_SURFACE_MIN_PX_PER_DEGREE = 24;
+const ROBLOX_SURFACE_MAX_PX_PER_DEGREE = 330;
 
 const FUTURE_MOTIONS = {
   "North America": { latPerMyr: 0.006, lngPerMyr: -0.045 },
@@ -976,6 +976,17 @@ function robloxSurfacePixelsPerDegree() {
   return THREE.MathUtils.lerp(ROBLOX_SURFACE_MAX_PX_PER_DEGREE, ROBLOX_SURFACE_MIN_PX_PER_DEGREE, zoomProgress);
 }
 
+function robloxSurfaceHorizonY(height) {
+  return height * 0.235;
+}
+
+function robloxSurfaceOrigin(width, height) {
+  return {
+    x: width * 0.5,
+    y: height * 0.625,
+  };
+}
+
 function robloxSurfaceHeadingBasis(position) {
   const heading = state.roblox.heading || { lat: 1, lng: 0 };
   const latFactor = Math.max(0.28, Math.cos((position.lat * Math.PI) / 180));
@@ -992,10 +1003,10 @@ function robloxSurfaceHeadingBasis(position) {
 function robloxSurfaceProjection(width, height, position) {
   const basis = robloxSurfaceHeadingBasis(position);
   const scale = robloxSurfacePixelsPerDegree();
-  const origin = {
-    x: width * 0.5,
-    y: height * 0.58,
-  };
+  const origin = robloxSurfaceOrigin(width, height);
+  const horizonY = robloxSurfaceHorizonY(height);
+  const horizonSpan = Math.max(1, origin.y - horizonY);
+  const foregroundSpan = Math.max(1, height * 1.16 - origin.y);
   const latScale = Math.max(0.28, Math.cos((position.lat * Math.PI) / 180));
 
   return (lat, lng, lift = 0) => {
@@ -1003,11 +1014,20 @@ function robloxSurfaceProjection(width, height, position) {
     const north = lat - position.lat;
     const right = east * basis.right.x + north * basis.right.y;
     const forward = east * basis.forward.x + north * basis.forward.y;
-    const distanceAhead = Math.max(0, forward + 1.2);
-    const perspective = clamp(1 / (1 + distanceAhead * 0.055), 0.36, 1.18);
+    const isAhead = forward >= 0;
+    const depth = isAhead
+      ? 1 - Math.exp(-forward * 0.17)
+      : 1 - Math.exp(forward * 0.2);
+    const perspective = isAhead
+      ? THREE.MathUtils.lerp(1.08, 0.24, depth)
+      : THREE.MathUtils.lerp(1.08, 1.22, depth);
+    const surfaceY = isAhead
+      ? origin.y - horizonSpan * depth
+      : origin.y + foregroundSpan * depth;
     return {
       x: origin.x + right * scale * perspective,
-      y: origin.y - forward * scale * perspective - lift * scale,
+      y: surfaceY - lift * scale,
+      right,
       forward,
       perspective,
     };
@@ -1024,6 +1044,22 @@ function robloxSurfaceFeatures() {
   }));
 }
 
+function visibleRobloxSurfacePoint(point, width, height, scale) {
+  const margin = Math.max(width, height) * 0.42;
+  const sideLimit = width / Math.max(scale, 1) * 0.95 + 8;
+  const frontLimit = height / Math.max(scale, 1) * 0.76 + 9;
+  const backLimit = height / Math.max(scale, 1) * 0.72 + 8;
+  return (
+    Math.abs(point.right) <= sideLimit &&
+    point.forward <= frontLimit &&
+    point.forward >= -backLimit &&
+    point.x >= -margin &&
+    point.x <= width + margin &&
+    point.y >= robloxSurfaceHorizonY(height) - margin * 0.18 &&
+    point.y <= height + margin
+  );
+}
+
 function robloxSurfacePath(geometry, project, width, height) {
   const polygons =
     geometry?.type === "Polygon"
@@ -1035,28 +1071,51 @@ function robloxSurfacePath(geometry, project, width, height) {
 
   const path = new Path2D();
   const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+  const scale = robloxSurfacePixelsPerDegree();
+  const maxSegmentLength = Math.max(width, height) * 0.42;
   let hasPoints = false;
+
+  const closeRing = (ringCount) => {
+    if (ringCount >= 3) {
+      path.closePath();
+      hasPoints = true;
+    }
+  };
 
   for (const polygon of polygons) {
     for (const ring of polygon) {
       if (!ring?.length) continue;
       let ringStarted = false;
+      let ringCount = 0;
+      let previousPoint = null;
       for (const [lng, lat] of ring) {
         const point = project(lat, lng);
         if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+        const visible = visibleRobloxSurfacePoint(point, width, height, scale);
+        const discontinuity =
+          previousPoint && Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y) > maxSegmentLength;
+        if (!visible || discontinuity) {
+          closeRing(ringCount);
+          ringStarted = false;
+          ringCount = 0;
+          previousPoint = visible ? point : null;
+          if (!visible) continue;
+        }
         if (!ringStarted) {
           path.moveTo(point.x, point.y);
           ringStarted = true;
-          hasPoints = true;
+          ringCount = 1;
         } else {
           path.lineTo(point.x, point.y);
+          ringCount += 1;
         }
         bounds.minX = Math.min(bounds.minX, point.x);
         bounds.maxX = Math.max(bounds.maxX, point.x);
         bounds.minY = Math.min(bounds.minY, point.y);
         bounds.maxY = Math.max(bounds.maxY, point.y);
+        previousPoint = point;
       }
-      if (ringStarted) path.closePath();
+      closeRing(ringCount);
     }
   }
 
@@ -1068,7 +1127,15 @@ function robloxSurfacePath(geometry, project, width, height) {
   return path;
 }
 
+function clipRobloxSurfaceBand(ctx, width, height, extra = 0) {
+  const horizonY = robloxSurfaceHorizonY(height);
+  ctx.beginPath();
+  ctx.rect(-extra, horizonY - extra * 0.08, width + extra * 2, height - horizonY + extra * 1.2);
+  ctx.clip();
+}
+
 function drawRobloxSurfaceBackground(ctx, width, height) {
+  const horizonY = robloxSurfaceHorizonY(height);
   const sky = ctx.createLinearGradient(0, 0, 0, height * 0.42);
   sky.addColorStop(0, "#b9e8f4");
   sky.addColorStop(0.58, "#7ec5e4");
@@ -1076,19 +1143,20 @@ function drawRobloxSurfaceBackground(ctx, width, height) {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, width, height);
 
-  const water = ctx.createLinearGradient(0, height * 0.22, 0, height);
+  const water = ctx.createLinearGradient(0, horizonY, 0, height);
   water.addColorStop(0, "#3da6e6");
   water.addColorStop(0.55, "#1e86dd");
   water.addColorStop(1, "#0b5cae");
   ctx.fillStyle = water;
-  ctx.fillRect(0, height * 0.22, width, height * 0.78);
+  ctx.fillRect(0, horizonY, width, height - horizonY);
 
   ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
-  ctx.fillRect(0, height * 0.22, width, 2);
+  ctx.fillRect(0, horizonY, width, 2);
 }
 
 function drawRobloxSurfaceGrid(ctx, width, height, project, position) {
   ctx.save();
+  clipRobloxSurfaceBand(ctx, width, height, 12);
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(210, 243, 255, 0.18)";
   const latStart = Math.floor((position.lat - 36) / 5) * 5;
@@ -1132,6 +1200,7 @@ function drawRobloxSurfaceLand(ctx, width, height, project) {
   const features = robloxSurfaceFeatures();
   const shadowOffset = Math.max(8, Math.min(22, robloxSurfacePixelsPerDegree() * 0.18));
   ctx.save();
+  clipRobloxSurfaceBand(ctx, width, height, Math.max(width, height) * 0.06);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
@@ -1158,10 +1227,11 @@ function drawRobloxSurfaceAvatar(ctx, width, height) {
   const walking = isRobloxLens() && window.performance.now() < state.roblox.walkingUntil;
   const phase = window.performance.now() / 95;
   const swing = walking ? Math.sin(phase) : 0;
-  const scale = Math.max(0.82, Math.min(1.34, height / 700));
-  const size = Math.max(58, Math.min(96, height * 0.105)) * scale;
-  const x = width * 0.5;
-  const y = height * 0.58;
+  const scale = Math.max(0.68, Math.min(0.96, height / 860));
+  const size = Math.max(34, Math.min(58, height * 0.056)) * scale;
+  const origin = robloxSurfaceOrigin(width, height);
+  const x = origin.x;
+  const y = origin.y;
 
   ctx.save();
   ctx.translate(x, y);
@@ -1201,14 +1271,15 @@ function drawRobloxSurfaceAvatar(ctx, width, height) {
 function drawRobloxSurfaceLabels(ctx, width, height) {
   if (!state.layers.labels) return;
   const selected = selectedPoint();
+  const origin = robloxSurfaceOrigin(width, height);
   ctx.save();
   ctx.font = "700 15px Inter, system-ui, sans-serif";
   ctx.textAlign = "center";
   ctx.lineWidth = 4;
   ctx.strokeStyle = "rgba(6, 12, 18, 0.78)";
   ctx.fillStyle = "rgba(255, 239, 187, 0.95)";
-  const x = width * 0.5;
-  const y = height * 0.58 - Math.max(66, Math.min(104, height * 0.12));
+  const x = origin.x;
+  const y = origin.y - Math.max(48, Math.min(82, height * 0.088));
   ctx.strokeText(selected.name, x, y);
   ctx.fillText(selected.name, x, y);
   ctx.restore();
