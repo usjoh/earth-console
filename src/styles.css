@@ -177,17 +177,28 @@ h1 {
   display: none;
   width: 100%;
   height: 100%;
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 180ms ease;
 }
 
 .app-shell.lens-roblox #globe {
   cursor: grab;
-  opacity: 0;
+  opacity: 1;
   touch-action: none;
+  transition: opacity 180ms ease;
 }
 
 .app-shell.lens-roblox .roblox-surface-view {
   display: block;
+}
+
+.app-shell.lens-roblox.roblox-surface-active #globe {
+  opacity: 0;
+}
+
+.app-shell.lens-roblox.roblox-surface-active .roblox-surface-view {
+  opacity: 1;
 }
 
 .app-shell.lens-roblox.roblox-dragging #globe {

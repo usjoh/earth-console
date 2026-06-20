@@ -967,13 +967,26 @@ function projectRobloxTangent(vector, normal) {
 
 function robloxSurfaceZoomProgress() {
   const min = Math.log(ROBLOX_MIN_CAMERA_ALTITUDE);
-  const max = Math.log(ROBLOX_MAX_CAMERA_ALTITUDE);
+  const max = Math.log(ROBLOX_SURFACE_CAMERA_THRESHOLD);
   return clamp((Math.log(state.roblox.altitude) - min) / (max - min), 0, 1);
 }
 
 function robloxSurfacePixelsPerDegree() {
   const zoomProgress = Math.pow(robloxSurfaceZoomProgress(), 0.58);
   return THREE.MathUtils.lerp(ROBLOX_SURFACE_MAX_PX_PER_DEGREE, ROBLOX_SURFACE_MIN_PX_PER_DEGREE, zoomProgress);
+}
+
+function isRobloxSurfaceView() {
+  return isRobloxLens() && state.roblox.altitude <= ROBLOX_SURFACE_CAMERA_THRESHOLD;
+}
+
+function updateRobloxViewMode() {
+  const shell = qs("#app");
+  if (!shell) return;
+  const surfaceActive = isRobloxSurfaceView();
+  shell.classList.toggle("lens-roblox", isRobloxLens());
+  shell.classList.toggle("roblox-surface-active", surfaceActive);
+  shell.classList.toggle("roblox-globe-active", isRobloxLens() && !surfaceActive);
 }
 
 function robloxSurfaceHorizonY(height) {
@@ -1287,7 +1300,7 @@ function drawRobloxSurfaceLabels(ctx, width, height) {
 
 function renderRobloxSurface() {
   const canvas = qs("#robloxSurface");
-  if (!canvas || !isRobloxLens() || !state.countries) return;
+  if (!canvas) return;
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -1302,6 +1315,11 @@ function renderRobloxSurface() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const width = rect.width;
   const height = rect.height;
+  if (!isRobloxSurfaceView() || !state.countries) {
+    ctx.clearRect(0, 0, width, height);
+    return;
+  }
+
   const position = activeRobloxPosition();
   const project = robloxSurfaceProjection(width, height, position);
 
@@ -1575,6 +1593,7 @@ function pointRobloxCameraAtAvatar(duration = 240) {
 function setRobloxCameraAltitude(altitude, duration = 120) {
   if (!isRobloxLens()) return;
   state.roblox.altitude = clamp(altitude, ROBLOX_MIN_CAMERA_ALTITUDE, ROBLOX_MAX_CAMERA_ALTITUDE);
+  updateRobloxViewMode();
   pointRobloxCameraAtAvatar(duration);
   renderRobloxSurface();
 }
@@ -2066,7 +2085,7 @@ function updateReadouts() {
 }
 
 function updateLensMode() {
-  qs("#app")?.classList.toggle("lens-roblox", isRobloxLens());
+  updateRobloxViewMode();
   if (!isRobloxLens()) {
     resetRobloxGestureState();
   }
