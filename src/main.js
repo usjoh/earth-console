@@ -442,10 +442,6 @@ function isRobloxLens() {
   return isGameLens();
 }
 
-function layerPrimaryInCurrentLens(metadata) {
-  return Boolean(metadata?.primaryLenses?.includes("all") || metadata?.primaryLenses?.includes(state.lens));
-}
-
 function activeDataDomainLabel() {
   if (state.time < 0) return "Geologic reconstruction";
   if (state.time > 0) return "Scenario future";
@@ -466,9 +462,9 @@ function updateLayerContext() {
       note.append(context);
     }
 
-    const primary = layerPrimaryInCurrentLens(metadata);
-    context.textContent = `${metadata.family} / ${metadata.timeDomain}${primary ? "" : ` / optional in ${lensConfig().label}`}`;
-    label.classList.toggle("is-secondary-layer", !primary);
+    input.disabled = false;
+    input.checked = Boolean(state.layers[input.dataset.layer]);
+    context.textContent = `${metadata.family} / ${metadata.timeDomain}`;
   });
 }
 
@@ -1504,6 +1500,19 @@ function robloxScreenMovementBasis(position) {
   };
 }
 
+function robloxNavigationBasis(position) {
+  const surfaceBase = robloxCoords(position.lat, position.lng, 0);
+  const surface = robloxCoords(position.lat, position.lng, 0.11);
+  const normal = new THREE.Vector3(surfaceBase.x, surfaceBase.y, surfaceBase.z).normalize();
+  const surfacePoint = new THREE.Vector3(surface.x, surface.y, surface.z);
+  const forward = robloxForwardVector(position, normal, surfacePoint, robloxCameraHeading(position));
+  let right = new THREE.Vector3().crossVectors(normal, forward).normalize();
+  if (right.lengthSq() < 0.000001) {
+    right = fallbackRobloxMovementBasis(position, normal, new THREE.Vector3(surfaceBase.x, surfaceBase.y, surfaceBase.z)).right;
+  }
+  return { forward, right };
+}
+
 function moveRobloxAvatarByScreenDelta(dx, dy, basisRight, basisUp, duration = 0) {
   const position = activeRobloxPosition();
   const surfaceBase = robloxCoords(position.lat, position.lng, 0);
@@ -1515,6 +1524,17 @@ function moveRobloxAvatarByScreenDelta(dx, dy, basisRight, basisUp, duration = 0
     .addScaledVector(right, dx)
     .addScaledVector(up, -dy);
   moveRobloxAvatarAlongTangent(direction, direction.length(), duration);
+}
+
+function moveRobloxAvatarByNavigationInput(vectorX, vectorY, pixels, duration = 0) {
+  const amount = Math.hypot(vectorX, vectorY);
+  if (amount < 0.04) return;
+  const position = activeRobloxPosition();
+  const { forward, right } = robloxNavigationBasis(position);
+  const direction = new THREE.Vector3()
+    .addScaledVector(right, vectorX)
+    .addScaledVector(forward, -vectorY);
+  moveRobloxAvatarAlongTangent(direction, pixels, duration);
 }
 
 function moveRobloxAvatarAlongTangent(direction, pixels, duration = 0, options = {}) {
@@ -1545,22 +1565,7 @@ function moveRobloxAvatarAlongTangent(direction, pixels, duration = 0, options =
 function moveRobloxAvatarByThumbInput(vectorX, vectorY, frameScale) {
   const amount = Math.hypot(vectorX, vectorY);
   if (amount < 0.04) return;
-  const position = activeRobloxPosition();
-  const surfaceBase = robloxCoords(position.lat, position.lng, 0);
-  const normal = new THREE.Vector3(surfaceBase.x, surfaceBase.y, surfaceBase.z).normalize();
-  const { right, up } = fallbackRobloxMovementBasis(
-    position,
-    normal,
-    new THREE.Vector3(surfaceBase.x, surfaceBase.y, surfaceBase.z),
-  );
-  const direction = new THREE.Vector3()
-    .addScaledVector(right, vectorX)
-    .addScaledVector(up, -vectorY);
-  moveRobloxAvatarAlongTangent(
-    direction,
-    amount * ROBLOX_JOYSTICK_MOVE_PX_PER_FRAME * frameScale,
-    0,
-  );
+  moveRobloxAvatarByNavigationInput(vectorX, vectorY, amount * ROBLOX_JOYSTICK_MOVE_PX_PER_FRAME * frameScale, 0);
 }
 
 function setRobloxHeadingFromForward(position, forward, duration = 0) {
@@ -1789,14 +1794,17 @@ function resetRobloxAvatarToFocus() {
 
 function moveRobloxAvatar(direction) {
   if (!isRobloxSurfaceView()) return;
-  const position = activeRobloxPosition();
-  const step = ROBLOX_KEY_STEP_DEGREES * THREE.MathUtils.lerp(1, 0.38, robloxSurfaceModeBlend());
-  const next = { ...position };
-  if (direction === "north") next.lat += step;
-  if (direction === "south") next.lat -= step;
-  if (direction === "east") next.lng += step;
-  if (direction === "west") next.lng -= step;
-  setRobloxAvatarPosition(next.lat, next.lng, 260);
+  const vectors = {
+    forward: [0, -1],
+    back: [0, 1],
+    left: [-1, 0],
+    right: [1, 0],
+  };
+  const vector = vectors[direction];
+  if (!vector) return;
+  const stepDegrees = ROBLOX_KEY_STEP_DEGREES * THREE.MathUtils.lerp(1, 0.38, robloxSurfaceModeBlend());
+  const pixels = stepDegrees / Math.max(0.001, ROBLOX_DRAG_DEGREES_PER_PX * robloxMovementScale());
+  moveRobloxAvatarByNavigationInput(vector[0], vector[1], pixels, 260);
 }
 
 function resetRobloxGestureState() {
@@ -2366,6 +2374,7 @@ async function setLayer(layer, value) {
   state.layers[layer] = value;
   await ensureVisibleLayers();
   updateGlobe();
+  updateLayerContext();
 }
 
 function togglePlayback() {
@@ -2474,18 +2483,18 @@ function buildControls() {
     if (!isRobloxSurfaceView()) return;
     if (["INPUT", "SELECT", "TEXTAREA", "BUTTON"].includes(document.activeElement?.tagName)) return;
     const movement = {
-      ArrowUp: "north",
-      w: "north",
-      W: "north",
-      ArrowDown: "south",
-      s: "south",
-      S: "south",
-      ArrowLeft: "west",
-      a: "west",
-      A: "west",
-      ArrowRight: "east",
-      d: "east",
-      D: "east",
+      ArrowUp: "forward",
+      w: "forward",
+      W: "forward",
+      ArrowDown: "back",
+      s: "back",
+      S: "back",
+      ArrowLeft: "left",
+      a: "left",
+      A: "left",
+      ArrowRight: "right",
+      d: "right",
+      D: "right",
     }[event.key];
     if (movement) {
       event.preventDefault();

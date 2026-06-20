@@ -556,6 +556,10 @@ select {
   cursor: pointer;
 }
 
+.layer-toggle:hover .layer-name {
+  color: var(--cyan);
+}
+
 .layer-toggle input {
   appearance: none;
   position: relative;
@@ -565,6 +569,12 @@ select {
   border: 1px solid var(--line-strong);
   border-radius: 999px;
   background: rgba(220, 230, 244, 0.12);
+  cursor: pointer;
+}
+
+.layer-toggle input:focus-visible {
+  outline: 2px solid rgba(255, 209, 102, 0.76);
+  outline-offset: 3px;
 }
 
 .layer-toggle input::after {
@@ -612,10 +622,6 @@ select {
   font-weight: 760;
   letter-spacing: 0.03em;
   text-transform: uppercase;
-}
-
-.layer-toggle.is-secondary-layer .layer-context {
-  color: rgba(255, 209, 102, 0.68);
 }
 
 .jump-grid {
