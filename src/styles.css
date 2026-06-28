@@ -889,6 +889,7 @@ input[type="range"]::-moz-range-thumb {
 
 @media (max-width: 1180px) {
   .app-shell {
+    --tools-panel-width: min(392px, calc(100vw - 24px));
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -932,7 +933,7 @@ input[type="range"]::-moz-range-thumb {
 
   .panel-scrim {
     position: fixed;
-    inset: var(--topbar-height, 72px) 0 0;
+    inset: var(--topbar-height, 72px) var(--tools-panel-width) 0 0;
     z-index: 18;
     display: block;
     border: 0;
@@ -948,11 +949,12 @@ input[type="range"]::-moz-range-thumb {
   }
 
   .side-panel {
+    z-index: 19;
     position: fixed;
     top: var(--topbar-height, 72px);
     right: 0;
     bottom: 0;
-    width: min(392px, calc(100vw - 24px));
+    width: var(--tools-panel-width);
     transform: translateX(104%);
     transition: transform 190ms ease;
     border-left: 1px solid var(--line);
